@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "406124396094",
+    "project_id": "hospital-records-97f2e",
+    "storage_bucket": "hospital-records-97f2e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:406124396094:android:48fd59a4d0435dd0151b6f",
+        "android_client_info": {
+          "package_name": "com.lev.hospital"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAcwkFYHmZZjyRSwl5dZA7apbnNxa_yTBA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

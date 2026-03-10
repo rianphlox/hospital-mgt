@@ -8,7 +8,7 @@ import 'cashier/cashier_dashboard.dart';
 import 'admin/admin_dashboard.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({Key? key}) : super(key: key);
+  const DashboardScreen({super.key});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();

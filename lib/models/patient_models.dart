@@ -251,7 +251,6 @@ class Payment {
     };
   }
 }
-}
 
 class DebtForgiveness {
   final String id;

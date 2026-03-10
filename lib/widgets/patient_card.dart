@@ -6,10 +6,10 @@ class PatientCard extends StatelessWidget {
   final VoidCallback onTap;
 
   const PatientCard({
-    Key? key,
+    super.key,
     required this.patient,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

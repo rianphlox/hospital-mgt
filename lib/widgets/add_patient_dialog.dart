@@ -8,9 +8,9 @@ class AddPatientDialog extends StatefulWidget {
   final UserProfile profile;
 
   const AddPatientDialog({
-    Key? key,
+    super.key,
     required this.profile,
-  }) : super(key: key);
+  });
 
   @override
   State<AddPatientDialog> createState() => _AddPatientDialogState();

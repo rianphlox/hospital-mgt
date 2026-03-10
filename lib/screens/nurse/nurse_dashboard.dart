@@ -9,7 +9,7 @@ import '../../widgets/add_patient_dialog.dart';
 import 'patient_detail_screen.dart';
 
 class NurseDashboard extends StatefulWidget {
-  const NurseDashboard({Key? key}) : super(key: key);
+  const NurseDashboard({super.key});
 
   @override
   State<NurseDashboard> createState() => _NurseDashboardState();

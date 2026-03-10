@@ -5,7 +5,7 @@ import '../../models/patient_models.dart';
 import 'billing_detail_screen.dart';
 
 class CashierDashboard extends StatefulWidget {
-  const CashierDashboard({Key? key}) : super(key: key);
+  const CashierDashboard({super.key});
 
   @override
   State<CashierDashboard> createState() => _CashierDashboardState();

@@ -11,6 +11,7 @@ import '../../models/user_models.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/data_provider.dart';
 import '../../widgets/record_payment_dialog.dart';
+import '../../widgets/debt_forgiveness_dialog.dart';
 
 class BillingDetailScreen extends StatefulWidget {
   final Patient patient;
@@ -173,17 +174,39 @@ class _BillingDetailScreenState extends State<BillingDetailScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Payment action
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () => _showRecordPaymentDialog(context, profile),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Record Payment'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                // Payment actions
+                Column(
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _showRecordPaymentDialog(context, profile),
+                        icon: const Icon(Icons.add),
+                        label: const Text('Record Payment'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                      ),
                     ),
-                  ),
+                    // Debt forgiveness button (only for admin/cashier with outstanding balance)
+                    if ((profile.role == UserRole.admin || profile.role == UserRole.cashier) &&
+                        widget.patient.outstandingBalance > 0) ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _showDebtForgivenessDialog(context, profile),
+                          icon: const Icon(Icons.money_off),
+                          label: const Text('Forgive Debt'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.orange.shade700,
+                            side: BorderSide(color: Colors.orange.shade300),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 24),
 
@@ -551,6 +574,16 @@ class _BillingDetailScreenState extends State<BillingDetailScreen> {
     showDialog(
       context: context,
       builder: (context) => RecordPaymentDialog(
+        patient: widget.patient,
+        profile: profile,
+      ),
+    );
+  }
+
+  void _showDebtForgivenessDialog(BuildContext context, UserProfile profile) {
+    showDialog(
+      context: context,
+      builder: (context) => DebtForgivenessDialog(
         patient: widget.patient,
         profile: profile,
       ),

@@ -20,7 +20,7 @@ class AddTreatmentDialog extends StatefulWidget {
 
 class _AddTreatmentDialogState extends State<AddTreatmentDialog> {
   final _formKey = GlobalKey<FormState>();
-  List<TreatmentItem> _items = [
+  final List<TreatmentItem> _items = [
     TreatmentItem(name: '', quantity: 1, unitPrice: 0)
   ];
 

@@ -71,11 +71,12 @@ A comprehensive Flutter-based hospital management system designed for efficient 
    ```
 
 3. **Firebase Setup**
-   - Create a new Firebase project
-   - Enable Firestore and Authentication
+   - Create a new Firebase project at [Firebase Console](https://console.firebase.google.com/)
+   - Enable Firestore Database and Authentication
    - Download `google-services.json` for Android
-   - Place it in `android/app/` directory
-   - Update Firebase configuration in `lib/config/firebase_config.dart`
+   - Copy the template file `android/app/google-services.json.template` to `android/app/google-services.json`
+   - Replace the placeholder values with your actual Firebase configuration
+   - Update Firebase configuration in `lib/config/firebase_config.dart` if needed
 
 4. **Run the application**
    ```bash

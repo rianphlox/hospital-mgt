@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/data_provider.dart';
+import '../../models/user_models.dart';
+import 'treatment_pricing_screen.dart';
+import 'patient_management_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
-  const AdminDashboard({super.key});
+  final UserProfile profile;
+
+  const AdminDashboard({
+    super.key,
+    required this.profile,
+  });
 
   @override
   State<AdminDashboard> createState() => _AdminDashboardState();
@@ -23,7 +31,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             children: [
               // Header
               const Text(
-                'Admin Overview',
+                'Admin Dashboard',
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -31,68 +39,116 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
               const SizedBox(height: 24),
 
-              // Statistics cards
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 3,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-                childAspectRatio: 1.8,
+              // Statistics cards - two rows
+              Column(
                 children: [
-                  _buildStatCard(
-                    'Total Patients',
-                    stats['total']?.toString() ?? '0',
-                    Icons.people,
-                    const Color(0xFF10B981),
+                  // First row - main stats
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildStatCard(
+                          'Total Patients',
+                          stats['total']?.toString() ?? '0',
+                          Icons.people,
+                          const Color(0xFF10B981),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildStatCard(
+                          'Active Patients',
+                          stats['active']?.toString() ?? '0',
+                          Icons.local_hospital,
+                          const Color(0xFF3B82F6),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildStatCard(
+                          'Discharged',
+                          stats['discharged']?.toString() ?? '0',
+                          Icons.check_circle,
+                          const Color(0xFF6B7280),
+                        ),
+                      ),
+                    ],
                   ),
-                  _buildStatCard(
-                    'Daily Revenue (Est.)',
-                    '₦450,000',
-                    Icons.trending_up,
-                    const Color(0xFF059669),
-                  ),
-                  _buildStatCard(
-                    'Active Wards',
-                    '4',
-                    Icons.domain,
-                    const Color(0xFF047857),
+                  const SizedBox(height: 16),
+                  // Second row - alerts and today's stats
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildAlertCard(
+                          'Pending Treatments',
+                          stats['pendingTreatments']?.toString() ?? '0',
+                          Icons.pending_actions,
+                          const Color(0xFFD97706),
+                          isPending: true,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildStatCard(
+                          'Today\'s Admissions',
+                          stats['todayAdmissions']?.toString() ?? '0',
+                          Icons.today,
+                          const Color(0xFF8B5CF6),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildStatCard(
+                          'Today\'s Treatments',
+                          stats['todayTreatments']?.toString() ?? '0',
+                          Icons.medical_services,
+                          const Color(0xFF06B6D4),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
 
-              // Management sections
+              // Management sections - grid layout
               Expanded(
                 child: GridView.count(
                   crossAxisCount: 2,
-                  crossAxisSpacing: 8,
-                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
                   childAspectRatio: 1.5,
                   children: [
                     _buildManagementCard(
+                      'Treatment Pricing',
+                      'Review and price pending treatments',
+                      Icons.attach_money,
+                      const Color(0xFF10B981),
+                      () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => TreatmentPricingScreen(profile: widget.profile),
+                        ),
+                      ),
+                    ),
+                    _buildManagementCard(
                       'Staff Management',
-                      'Manage nurse and cashier accounts, assign wards, and control access levels.',
-                      Icons.person,
+                      'Manage staff accounts and permissions',
+                      Icons.people_outline,
+                      const Color(0xFF3B82F6),
                       () => _showComingSoonDialog('Staff Management'),
                     ),
                     _buildManagementCard(
                       'Financial Reports',
-                      'Generate detailed revenue reports, view payment trends, and export data for accounting.',
+                      'View revenue and financial analytics',
                       Icons.assessment,
+                      const Color(0xFF8B5CF6),
                       () => _showComingSoonDialog('Financial Reports'),
                     ),
                     _buildManagementCard(
-                      'System Settings',
-                      'Configure application settings, manage departments, and update pricing information.',
-                      Icons.settings,
-                      () => _showComingSoonDialog('System Settings'),
-                    ),
-                    _buildManagementCard(
-                      'Backup & Security',
-                      'Manage data backups, security settings, and user access permissions.',
-                      Icons.security,
-                      () => _showComingSoonDialog('Backup & Security'),
+                      'Patient Management',
+                      'Discharge patients and manage records',
+                      Icons.people,
+                      const Color(0xFFDC2626),
+                      () => _showPatientManagement(),
                     ),
                   ],
                 ),
@@ -110,63 +166,152 @@ class _AdminDashboardState extends State<AdminDashboard> {
     IconData icon,
     Color color,
   ) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(8),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                icon,
+                color: color,
+                size: 24,
+              ),
+              const Spacer(),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Color(0xFF6B7280),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAlertCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color, {
+    bool isPending = false,
+  }) {
+    final int count = int.tryParse(value) ?? 0;
+    final bool hasAlert = isPending && count > 0;
+
+    return GestureDetector(
+      onTap: hasAlert && isPending
+          ? () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => TreatmentPricingScreen(profile: widget.profile),
+                ),
+              )
+          : null,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: hasAlert ? const Color(0xFFFEF3C7) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: hasAlert ? const Color(0xFFFDE68A) : const Color(0xFFE5E7EB),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               children: [
                 Icon(
                   icon,
                   color: color,
-                  size: 16,
+                  size: 24,
                 ),
                 const Spacer(),
-                Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Icon(
-                    Icons.trending_up,
-                    color: color,
-                    size: 8,
-                  ),
+                Row(
+                  children: [
+                    if (hasAlert)
+                      Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: color,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Text(
+                          'ALERT',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    Text(
+                      value,
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-            const SizedBox(height: 4),
-            Flexible(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 8,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFA8A29E),
-                  letterSpacing: 0.3,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 14,
+                color: hasAlert ? const Color(0xFF92400E) : const Color(0xFF6B7280),
+                fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(height: 2),
-            Flexible(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
+            if (hasAlert)
+              const Padding(
+                padding: EdgeInsets.only(top: 4),
                 child: Text(
-                  value,
+                  'Needs pricing by doctor/admin',
                   style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: color,
+                    fontSize: 12,
+                    color: Color(0xFF92400E),
+                    fontStyle: FontStyle.italic,
                   ),
                 ),
               ),
-            ),
           ],
         ),
       ),
@@ -177,62 +322,91 @@ class _AdminDashboardState extends State<AdminDashboard> {
     String title,
     String description,
     IconData icon,
+    Color color,
     VoidCallback onTap,
   ) {
-    return Card(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                color: const Color(0xFF10B981),
-                size: 24,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 6),
-              Expanded(
-                child: Text(
-                  description,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF78716C),
-                    height: 1.3,
-                  ),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Text(
-                    'Manage →',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).primaryColor,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: color,
+                size: 22,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1F2937),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Expanded(
+              child: Text(
+                description,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF6B7280),
+                  height: 1.3,
+                ),
+                overflow: TextOverflow.fade,
+                maxLines: 2,
+              ),
+            ),
+            Row(
+              children: [
+                Text(
+                  'Manage',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.arrow_forward,
+                  size: 16,
+                  color: color,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showPatientManagement() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => PatientManagementScreen(adminProfile: widget.profile),
       ),
     );
   }
@@ -242,7 +416,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
         ),
         title: Text(feature),
         content: const Text(

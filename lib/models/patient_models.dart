@@ -111,19 +111,19 @@ class Patient {
 class TreatmentItem {
   final String name;
   final int quantity;
-  final int unitPrice;
+  final int unitPrice; // 0 when pending pricing, set by admin
 
   TreatmentItem({
     required this.name,
     required this.quantity,
-    required this.unitPrice,
+    this.unitPrice = 0, // Default to 0 for nurse entries
   });
 
   factory TreatmentItem.fromJson(Map<String, dynamic> json) {
     return TreatmentItem(
       name: json['name'] as String,
       quantity: json['quantity'] as int,
-      unitPrice: json['unitPrice'] as int,
+      unitPrice: json['unitPrice'] as int? ?? 0,
     );
   }
 
@@ -138,6 +138,25 @@ class TreatmentItem {
   int get totalPrice => quantity * unitPrice;
 }
 
+enum TreatmentPricingStatus {
+  pending,    // Nurse logged but admin hasn't priced
+  priced,     // Admin has set pricing
+  billed,     // Cashier has billed patient
+}
+
+extension TreatmentPricingStatusExtension on TreatmentPricingStatus {
+  String get displayName {
+    switch (this) {
+      case TreatmentPricingStatus.pending:
+        return 'Pending Pricing';
+      case TreatmentPricingStatus.priced:
+        return 'Priced';
+      case TreatmentPricingStatus.billed:
+        return 'Billed';
+    }
+  }
+}
+
 class Treatment {
   final String id;
   final String patientId;
@@ -147,6 +166,10 @@ class Treatment {
   final int totalCharge;
   final DateTime timestamp;
   final NursingShift? shift;
+  final TreatmentPricingStatus pricingStatus;
+  final String? adminId;
+  final String? adminName;
+  final DateTime? pricedAt;
 
   Treatment({
     required this.id,
@@ -157,6 +180,10 @@ class Treatment {
     required this.totalCharge,
     required this.timestamp,
     this.shift,
+    this.pricingStatus = TreatmentPricingStatus.pending,
+    this.adminId,
+    this.adminName,
+    this.pricedAt,
   });
 
   factory Treatment.fromJson(Map<String, dynamic> json, String id) {
@@ -168,13 +195,24 @@ class Treatment {
       items: (json['items'] as List)
           .map((item) => TreatmentItem.fromJson(item as Map<String, dynamic>))
           .toList(),
-      totalCharge: json['totalCharge'] as int,
+      totalCharge: json['totalCharge'] as int? ?? 0,
       timestamp: (json['timestamp'] as Timestamp).toDate(),
       shift: json['shift'] != null
           ? NursingShift.values.firstWhere(
               (s) => s.name == json['shift'],
               orElse: () => NursingShiftExtension.getCurrentShift(),
             )
+          : null,
+      pricingStatus: json['pricingStatus'] != null
+          ? TreatmentPricingStatus.values.firstWhere(
+              (status) => status.name == json['pricingStatus'],
+              orElse: () => TreatmentPricingStatus.pending,
+            )
+          : TreatmentPricingStatus.pending,
+      adminId: json['adminId'] as String?,
+      adminName: json['adminName'] as String?,
+      pricedAt: json['pricedAt'] != null
+          ? (json['pricedAt'] as Timestamp).toDate()
           : null,
     );
   }
@@ -188,6 +226,10 @@ class Treatment {
       'totalCharge': totalCharge,
       'timestamp': Timestamp.fromDate(timestamp),
       'shift': shift?.name,
+      'pricingStatus': pricingStatus.name,
+      'adminId': adminId,
+      'adminName': adminName,
+      'pricedAt': pricedAt != null ? Timestamp.fromDate(pricedAt!) : null,
     };
   }
 }

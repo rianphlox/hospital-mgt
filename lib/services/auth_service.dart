@@ -101,17 +101,10 @@ class AuthService {
     try {
       final DocumentSnapshot doc =
           await _firestore.collection('users').doc(user.uid).get();
+      
+      final userData = testUsers[user.email];
 
       if (!doc.exists) {
-        // Find user data from predefined test users
-        Map<String, String>? userData;
-        for (final entry in testUsers.entries) {
-          if (entry.value['uid'] == user.uid) {
-            userData = entry.value;
-            break;
-          }
-        }
-
         // Create profile with predefined data or defaults
         final profile = UserProfile(
           uid: user.uid,
@@ -125,6 +118,17 @@ class AuthService {
             .collection('users')
             .doc(user.uid)
             .set(profile.toJson());
+      } else if (userData != null) {
+        // If it's a test user, ensure the role is correct in Firestore
+        final currentData = doc.data() as Map<String, dynamic>;
+        final correctRole = userData['role']!;
+        
+        if (currentData['role'] != correctRole) {
+          await _firestore
+              .collection('users')
+              .doc(user.uid)
+              .update({'role': correctRole});
+        }
       }
     } catch (e) {
       FirebaseService.handleFirestoreError(e, OperationType.create, 'users');

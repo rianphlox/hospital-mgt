@@ -12,6 +12,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/data_provider.dart';
 import '../../widgets/record_payment_dialog.dart';
 import '../../widgets/debt_forgiveness_dialog.dart';
+import '../../widgets/discharge_patient_dialog.dart';
 
 class BillingDetailScreen extends StatefulWidget {
   final Patient patient;
@@ -51,7 +52,13 @@ class _BillingDetailScreenState extends State<BillingDetailScreen> {
           final payments = dataProvider.payments;
           final profile = authProvider.profile!;
 
-          final totalBilled = treatments.fold<int>(
+          // Only include priced treatments for billing
+          final pricedTreatments = treatments.where(
+            (treatment) => treatment.pricingStatus == TreatmentPricingStatus.priced ||
+                          treatment.pricingStatus == TreatmentPricingStatus.billed,
+          ).toList();
+
+          final totalBilled = pricedTreatments.fold<int>(
             0,
             (sum, treatment) => sum + treatment.totalCharge,
           );
@@ -206,6 +213,25 @@ class _BillingDetailScreenState extends State<BillingDetailScreen> {
                         ),
                       ),
                     ],
+
+                    // Discharge button (only for cashiers and admins when patient has no outstanding balance)
+                    if ((profile.role == UserRole.admin || profile.role == UserRole.cashier) &&
+                        widget.patient.status == PatientStatus.active) ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () => _showDischargeDialog(context, profile),
+                          icon: const Icon(Icons.exit_to_app),
+                          label: const Text('Discharge Patient'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFDC2626),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 24),
@@ -252,7 +278,7 @@ class _BillingDetailScreenState extends State<BillingDetailScreen> {
                       ),
                       SizedBox(
                         height: 400,
-                        child: treatments.isEmpty
+                        child: pricedTreatments.isEmpty
                             ? _buildEmptyBill()
                             : Column(
                                 children: [
@@ -274,13 +300,31 @@ class _BillingDetailScreenState extends State<BillingDetailScreen> {
                                         ),
                                         const SizedBox(width: 8),
                                         Text(
-                                          'Showing ${treatments.length} treatment${treatments.length != 1 ? 's' : ''} by nursing staff',
+                                          'Showing ${pricedTreatments.length} priced treatment${pricedTreatments.length != 1 ? 's' : ''}',
                                           style: const TextStyle(
                                             color: Color(0xFF065F46),
                                             fontSize: 13,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
+                                        if (treatments.length > pricedTreatments.length) ...[
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFFEF3C7),
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              '${treatments.length - pricedTreatments.length} pending pricing',
+                                              style: const TextStyle(
+                                                color: Color(0xFFEAB308),
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ],
                                     ),
                                   ),
@@ -288,11 +332,11 @@ class _BillingDetailScreenState extends State<BillingDetailScreen> {
                                   Expanded(
                                     child: ListView.separated(
                                       padding: const EdgeInsets.all(24),
-                                      itemCount: treatments.length,
+                                      itemCount: pricedTreatments.length,
                                       separatorBuilder: (context, index) =>
                                           const Divider(height: 32),
                                       itemBuilder: (context, index) {
-                                        final treatment = treatments[index];
+                                        final treatment = pricedTreatments[index];
                                         return _buildTreatmentSection(treatment);
                                       },
                                     ),
@@ -590,13 +634,35 @@ class _BillingDetailScreenState extends State<BillingDetailScreen> {
     );
   }
 
+  void _showDischargeDialog(BuildContext context, UserProfile profile) {
+    showDialog(
+      context: context,
+      builder: (context) => DischargePatientDialog(
+        patient: widget.patient,
+        adminProfile: profile,
+        onSuccess: () {
+          // Refresh data and go back
+          final dataProvider = context.read<DataProvider>();
+          dataProvider.refreshStats();
+          Navigator.of(context).pop();
+        },
+      ),
+    );
+  }
+
   Future<void> _generateBillPDF() async {
     try {
       final dataProvider = context.read<DataProvider>();
       final treatments = dataProvider.treatments;
       final payments = dataProvider.payments;
 
-      final totalBilled = treatments.fold<int>(
+      // Only include priced treatments in PDF
+      final pricedTreatments = treatments.where(
+        (treatment) => treatment.pricingStatus == TreatmentPricingStatus.priced ||
+                      treatment.pricingStatus == TreatmentPricingStatus.billed,
+      ).toList();
+
+      final totalBilled = pricedTreatments.fold<int>(
         0,
         (sum, treatment) => sum + treatment.totalCharge,
       );
@@ -781,7 +847,7 @@ class _BillingDetailScreenState extends State<BillingDetailScreen> {
               pw.SizedBox(height: 20),
 
               // Treatment Details
-              if (treatments.isNotEmpty) ...[
+              if (pricedTreatments.isNotEmpty) ...[
                 pw.Text(
                   'Treatment Details',
                   style: pw.TextStyle(
@@ -791,7 +857,7 @@ class _BillingDetailScreenState extends State<BillingDetailScreen> {
                 ),
                 pw.SizedBox(height: 12),
 
-                ...treatments.map((treatment) => pw.Container(
+                ...pricedTreatments.map((treatment) => pw.Container(
                   margin: const pw.EdgeInsets.only(bottom: 16),
                   padding: const pw.EdgeInsets.all(12),
                   decoration: pw.BoxDecoration(

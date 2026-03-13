@@ -52,7 +52,7 @@ class _SplashScreenState extends State<SplashScreen>
                     width: 80,
                     height: 80,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
+                      color: Colors.white.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: const Icon(
@@ -78,7 +78,7 @@ class _SplashScreenState extends State<SplashScreen>
             Text(
               'Initializing...',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
               ),
@@ -88,7 +88,7 @@ class _SplashScreenState extends State<SplashScreen>
               width: 40,
               height: 40,
               child: CircularProgressIndicator(
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 strokeWidth: 3,
               ),
             ),

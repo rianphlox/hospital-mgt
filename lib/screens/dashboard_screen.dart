@@ -141,20 +141,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ],
           ),
-          body: _buildBodyForRole(profile.role),
+          body: _buildBodyForRole(profile.role, profile),
         );
       },
     );
   }
 
-  Widget _buildBodyForRole(UserRole role) {
+  Widget _buildBodyForRole(UserRole role, UserProfile profile) {
     switch (role) {
       case UserRole.nurse:
         return const NurseDashboard();
       case UserRole.cashier:
-        return const CashierDashboard();
+        return CashierDashboard(profile: profile);
       case UserRole.admin:
-        return const AdminDashboard();
+        return AdminDashboard(profile: profile);
     }
   }
 

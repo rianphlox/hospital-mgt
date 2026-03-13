@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../config/firebase_config.dart';
+import 'dart:io' show Platform;
 
 enum OperationType {
   create,
@@ -38,13 +39,26 @@ class FirebaseService {
     _auth = FirebaseAuth.instanceFor(app: _app!);
     _firestore = FirebaseFirestore.instanceFor(app: _app!);
 
+    // Disable reCAPTCHA for testing (Android emulator only)
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        await _auth!.setSettings(
+          appVerificationDisabledForTesting: true,
+        );
+        debugPrint('✅ Firebase Auth: reCAPTCHA disabled for testing');
+      } catch (e) {
+        debugPrint('⚠️ Firebase Auth settings error: $e');
+      }
+    }
+
     // Enable offline persistence
     try {
       _firestore!.settings = const Settings(
         persistenceEnabled: true,
       );
+      debugPrint('✅ Firestore: Offline persistence enabled');
     } catch (e) {
-      debugPrint('Firestore persistence error: $e');
+      debugPrint('⚠️ Firestore persistence error: $e');
     }
   }
 

@@ -21,7 +21,7 @@ class AddTreatmentDialog extends StatefulWidget {
 class _AddTreatmentDialogState extends State<AddTreatmentDialog> {
   final _formKey = GlobalKey<FormState>();
   final List<TreatmentItem> _items = [
-    TreatmentItem(name: '', quantity: 1, unitPrice: 0)
+    TreatmentItem(name: '', quantity: 1)
   ];
 
   // Drug categories for organized dropdown
@@ -57,18 +57,13 @@ class _AddTreatmentDialogState extends State<AddTreatmentDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final total = _items.fold(
-      0,
-      (sum, item) => sum + (item.unitPrice * item.quantity),
-    );
-
     return Dialog(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
       ),
       child: Container(
-        width: 700,
-        constraints: const BoxConstraints(maxHeight: 700),
+        width: 600,
+        constraints: const BoxConstraints(maxHeight: 600),
         child: Column(
           children: [
             // Header
@@ -147,76 +142,84 @@ class _AddTreatmentDialogState extends State<AddTreatmentDialog> {
                   top: BorderSide(color: Color(0xFFF5F5F4)),
                 ),
               ),
-              child: Row(
+              child: Column(
                 children: [
-                  // Total
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Total Charge',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFFA8A29E),
-                          letterSpacing: 1,
+                  // Pricing note
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0F9FF), // Blue-50
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF0EA5E9)), // Blue-500
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.info_outline,
+                          color: Color(0xFF0EA5E9), // Blue-500
+                          size: 16,
                         ),
-                      ),
-                      Text(
-                        '₦${total.toString()}',
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF059669), // Emerald-700
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Pricing will be set by Doctor/Admin',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF0369A1), // Blue-700
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                  const Spacer(),
 
                   // Action buttons
                   Row(
                     children: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text(
-                          'Cancel',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF78716C),
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Consumer<DataProvider>(
-                        builder: (context, dataProvider, _) {
-                          return ElevatedButton(
-                            onPressed: dataProvider.isLoading
-                                ? null
-                                : _submitTreatment,
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 32,
-                                vertical: 16,
+                      Expanded(
+                        child: Consumer<DataProvider>(
+                          builder: (context, dataProvider, _) {
+                            return ElevatedButton(
+                              onPressed: dataProvider.isLoading ? null : _submitTreatment,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF10B981),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                               ),
-                            ),
-                            child: dataProvider.isLoading
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
+                              child: dataProvider.isLoading
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Text(
+                                      'Save Treatment',
+                                      style: TextStyle(fontWeight: FontWeight.bold),
                                     ),
-                                  )
-                                : const Text(
-                                    'Save Log',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                          );
-                        },
+                            );
+                          },
+                        ),
                       ),
                     ],
                   ),
@@ -292,6 +295,7 @@ class _AddTreatmentDialogState extends State<AddTreatmentDialog> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: TextFormField(
+                    key: ValueKey('name_${index}_${item.name}'),
                     initialValue: item.name,
                     decoration: InputDecoration(
                       hintText: 'Type drug name or select from categories below',
@@ -301,7 +305,7 @@ class _AddTreatmentDialogState extends State<AddTreatmentDialog> {
                       suffixIcon: item.name.isNotEmpty
                           ? IconButton(
                               icon: const Icon(Icons.clear, size: 18),
-                              onPressed: () => _updateItem(index, name: '', unitPrice: 0),
+                              onPressed: () => _updateItem(index, name: ''),
                             )
                           : null,
                     ),
@@ -325,8 +329,8 @@ class _AddTreatmentDialogState extends State<AddTreatmentDialog> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                ..._drugCategories.entries.map((category) {
-                  return ExpansionTile(
+                for (final category in _drugCategories.entries)
+                  ExpansionTile(
                     tilePadding: const EdgeInsets.symmetric(horizontal: 0),
                     childrenPadding: const EdgeInsets.only(left: 16, bottom: 8),
                     title: Text(
@@ -374,15 +378,6 @@ class _AddTreatmentDialogState extends State<AddTreatmentDialog> {
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
-                                  Text(
-                                    '₦${drug.price}',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: isSelected
-                                          ? Colors.white70
-                                          : const Color(0xFF78716C),
-                                    ),
-                                  ),
                                 ],
                               ),
                             ),
@@ -390,110 +385,65 @@ class _AddTreatmentDialogState extends State<AddTreatmentDialog> {
                         }).toList(),
                       ),
                     ],
-                  );
-                }).toList(),
+                  ),
               ],
             ),
             const SizedBox(height: 16),
 
-            // Quantity and Price Row
-            Row(
+            // Quantity
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Quantity
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Quantity',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1C1917),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: const Color(0xFFE7E5E4)),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            IconButton(
-                              onPressed: () => _updateItem(
-                                index,
-                                quantity: (item.quantity > 1) ? item.quantity - 1 : 1,
-                              ),
-                              icon: const Icon(Icons.remove, size: 18),
-                              style: IconButton.styleFrom(
-                                padding: const EdgeInsets.all(8),
-                              ),
-                            ),
-                            Expanded(
-                              child: TextFormField(
-                                initialValue: item.quantity.toString(),
-                                textAlign: TextAlign.center,
-                                decoration: const InputDecoration(
-                                  border: InputBorder.none,
-                                  contentPadding: EdgeInsets.zero,
-                                ),
-                                keyboardType: TextInputType.number,
-                                onChanged: (value) => _updateItem(
-                                  index,
-                                  quantity: int.tryParse(value) ?? 1,
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: () => _updateItem(
-                                index,
-                                quantity: item.quantity + 1,
-                              ),
-                              icon: const Icon(Icons.add, size: 18),
-                              style: IconButton.styleFrom(
-                                padding: const EdgeInsets.all(8),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                const Text(
+                  'Quantity',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1C1917),
                   ),
                 ),
-                const SizedBox(width: 16),
-
-                // Unit Price
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFFE7E5E4)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
                     children: [
-                      const Text(
-                        'Unit Price (₦)',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1C1917),
+                      IconButton(
+                        onPressed: () => _updateItem(
+                          index,
+                          quantity: (item.quantity > 1) ? item.quantity - 1 : 1,
+                        ),
+                        icon: const Icon(Icons.remove, size: 18),
+                        style: IconButton.styleFrom(
+                          padding: const EdgeInsets.all(8),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: const Color(0xFFE7E5E4)),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                      Expanded(
                         child: TextFormField(
-                          initialValue: item.unitPrice.toString(),
+                          key: ValueKey('qty_${index}_${item.quantity}'),
+                          initialValue: item.quantity.toString(),
+                          textAlign: TextAlign.center,
                           decoration: const InputDecoration(
                             border: InputBorder.none,
-                            contentPadding: EdgeInsets.all(12),
-                            prefixText: '₦ ',
+                            contentPadding: EdgeInsets.zero,
                           ),
                           keyboardType: TextInputType.number,
                           onChanged: (value) => _updateItem(
                             index,
-                            unitPrice: int.tryParse(value) ?? 0,
+                            quantity: int.tryParse(value) ?? 1,
                           ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => _updateItem(
+                          index,
+                          quantity: item.quantity + 1,
+                        ),
+                        icon: const Icon(Icons.add, size: 18),
+                        style: IconButton.styleFrom(
+                          padding: const EdgeInsets.all(8),
                         ),
                       ),
                     ],
@@ -501,38 +451,6 @@ class _AddTreatmentDialogState extends State<AddTreatmentDialog> {
                 ),
               ],
             ),
-
-            // Item Total
-            if (item.name.isNotEmpty && item.unitPrice > 0)
-              Container(
-                margin: const EdgeInsets.only(top: 16),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDF4),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.2)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Item Total:',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF065F46),
-                      ),
-                    ),
-                    Text(
-                      '₦${(item.quantity * item.unitPrice).toString()}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF059669),
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
           ],
         ),
       ),
@@ -541,7 +459,7 @@ class _AddTreatmentDialogState extends State<AddTreatmentDialog> {
 
   void _addItem() {
     setState(() {
-      _items.add(TreatmentItem(name: '', quantity: 1, unitPrice: 0));
+      _items.add(TreatmentItem(name: '', quantity: 1));
     });
   }
 
@@ -557,37 +475,32 @@ class _AddTreatmentDialogState extends State<AddTreatmentDialog> {
     int index, {
     String? name,
     int? quantity,
-    int? unitPrice,
   }) {
     setState(() {
       _items[index] = TreatmentItem(
         name: name ?? _items[index].name,
         quantity: quantity ?? _items[index].quantity,
-        unitPrice: unitPrice ?? _items[index].unitPrice,
       );
     });
   }
 
   void _selectQuickDrug(int index, QuickDrug drug) {
-    _updateItem(index, name: drug.name, unitPrice: drug.price);
+    _updateItem(index, name: drug.name);
   }
 
   Future<void> _submitTreatment() async {
-    // Check for validation like React version
-    if (_items.any((item) => item.name.isEmpty || item.unitPrice <= 0)) {
+    // Check for validation - only name and quantity needed for nurse logging
+    if (_items.any((item) => item.name.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please fill in all item details with valid prices'),
+          content: Text('Please fill in all item names'),
           backgroundColor: Colors.red,
         ),
       );
       return;
     }
 
-    final total = _items.fold(
-      0,
-      (sum, item) => sum + (item.unitPrice * item.quantity),
-    );
+    final total = 0; // No pricing at nurse level
 
     final treatment = Treatment(
       id: '', // Will be generated by Firestore
@@ -597,6 +510,7 @@ class _AddTreatmentDialogState extends State<AddTreatmentDialog> {
       items: _items,
       totalCharge: total,
       timestamp: DateTime.now(), // Will be overridden by serverTimestamp in DataService
+      pricingStatus: TreatmentPricingStatus.pending,
     );
 
     try {

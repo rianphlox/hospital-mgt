@@ -1,4 +1,4 @@
-# CareLog Hospital Management System
+# CrownLog Hospital Management System
 
 A comprehensive Flutter-based hospital management system designed for efficient patient care, treatment tracking, and billing management. Built with Firebase for real-time data synchronization and role-based access control.
 
@@ -215,4 +215,4 @@ For support and questions:
 
 ---
 
-**CareLog Hospital Management System** - Streamlining healthcare operations with modern technology.
+**CrownLog Hospital Management System** - Streamlining healthcare operations with modern technology.

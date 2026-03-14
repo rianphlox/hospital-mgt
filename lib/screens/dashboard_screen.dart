@@ -60,7 +60,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'CareLog',
+                      'CrownLog',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,

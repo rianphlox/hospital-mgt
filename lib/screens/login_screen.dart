@@ -155,7 +155,7 @@ class _LoginScreenState extends State<LoginScreen>
 
                             // Title
                             const Text(
-                              'CareLog',
+                              'CrownLog',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 42,

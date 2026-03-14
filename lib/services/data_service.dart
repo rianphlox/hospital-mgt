@@ -356,9 +356,16 @@ class DataService {
           .doc();
       batch.set(forgivenessRef, forgiveness.toJson());
 
-      // Clear or reduce the patient's outstanding balance
-      final patientRef = _firestore.collection('patients').doc(patientId);
-      batch.update(patientRef, {'outstandingBalance': 0}); // Forgive the entire balance
+      // Get current patient data to calculate new balance
+      final patientDoc = await _firestore.collection('patients').doc(patientId).get();
+      if (patientDoc.exists) {
+        final currentBalance = patientDoc.data()?['outstandingBalance'] as int? ?? 0;
+        final newBalance = currentBalance - forgiveness.forgivenAmount;
+
+        // Update the patient's outstanding balance (subtract forgiven amount)
+        final patientRef = _firestore.collection('patients').doc(patientId);
+        batch.update(patientRef, {'outstandingBalance': newBalance >= 0 ? newBalance : 0});
+      }
 
       await batch.commit();
     } catch (e) {

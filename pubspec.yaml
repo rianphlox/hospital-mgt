@@ -1,5 +1,5 @@
-name: carelog_flutter
-description: "CareLog Hospital Management System - A comprehensive Flutter-based solution for healthcare facilities featuring patient management, treatment tracking, billing, and partial payment processing with Firebase integration."
+name: crownlog_flutter
+description: "CrownLog Hospital Management System - A comprehensive Flutter-based solution for healthcare facilities featuring patient management, treatment tracking, billing, and partial payment processing with Firebase integration."
 
 # Repository and homepage information
 homepage: https://github.com/rianphlox/hospital-mgt

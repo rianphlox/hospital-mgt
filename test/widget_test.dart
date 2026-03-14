@@ -7,14 +7,14 @@
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:carelog_flutter/main.dart';
+import 'package:crownlog_flutter/main.dart';
 
 void main() {
-  testWidgets('CareLog app smoke test', (WidgetTester tester) async {
+  testWidgets('CrownLog app smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const CareLogApp());
+    await tester.pumpWidget(const CrownLogApp());
 
     // Verify that the app shows the loading screen initially
-    expect(find.text('CareLog'), findsOneWidget);
+    expect(find.text('CrownLog'), findsOneWidget);
   });
 }

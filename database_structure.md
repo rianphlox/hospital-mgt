@@ -1,4 +1,4 @@
-# CareLog Hospital Database Structure
+# CrownLog Hospital Database Structure
 
 ## 🔥 Firebase Collections to Create
 

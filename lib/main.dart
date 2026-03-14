@@ -10,11 +10,11 @@ import 'screens/dashboard_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await FirebaseService.initialize();
-  runApp(const CareLogApp());
+  runApp(const CrownLogApp());
 }
 
-class CareLogApp extends StatelessWidget {
-  const CareLogApp({super.key});
+class CrownLogApp extends StatelessWidget {
+  const CrownLogApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +24,7 @@ class CareLogApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => DataProvider()),
       ],
       child: MaterialApp(
-        title: 'CareLog Hospital',
+        title: 'CrownLog Hospital',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           primarySwatch: Colors.green,

@@ -52,7 +52,7 @@ class _AddPatientDialogState extends State<AddPatientDialog> {
         borderRadius: BorderRadius.circular(24),
       ),
       child: Container(
-        width: 500,
+        constraints: const BoxConstraints(maxWidth: 500),
         padding: const EdgeInsets.all(32),
         child: Form(
           key: _formKey,

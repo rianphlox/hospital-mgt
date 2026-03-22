@@ -31,10 +31,10 @@ class _NurseDashboardState extends State<NurseDashboard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header with filter tabs and add button
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxWidth < 600) {
+                    return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
@@ -45,44 +45,106 @@ class _NurseDashboardState extends State<NurseDashboard> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        // Filter tabs
-                        Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF5F5F4), // Stone-100
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _buildFilterTab(
-                                'Active',
-                                PatientStatus.active,
-                                dataProvider,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF5F5F4),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: _buildFilterTab(
+                                        'Active',
+                                        PatientStatus.active,
+                                        dataProvider,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: _buildFilterTab(
+                                        'Discharged',
+                                        PatientStatus.discharged,
+                                        dataProvider,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              _buildFilterTab(
-                                'Discharged',
-                                PatientStatus.discharged,
-                                dataProvider,
+                            ),
+                            const SizedBox(width: 12),
+                            ElevatedButton.icon(
+                              onPressed: () => _showAddPatientDialog(context, authProvider.profile!),
+                              icon: const Icon(Icons.add, size: 16),
+                              label: const Text('Add', style: TextStyle(fontSize: 12)),
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ],
-                    ),
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: () => _showAddPatientDialog(context, authProvider.profile!),
-                    icon: const Icon(Icons.add),
-                    label: const Text('New Admission'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
+                    );
+                  }
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Ward Patients',
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            // Filter tabs
+                            Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF5F5F4), // Stone-100
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _buildFilterTab(
+                                    'Active',
+                                    PatientStatus.active,
+                                    dataProvider,
+                                  ),
+                                  _buildFilterTab(
+                                    'Discharged',
+                                    PatientStatus.discharged,
+                                    dataProvider,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ),
-                ],
+                      ElevatedButton.icon(
+                        onPressed: () => _showAddPatientDialog(context, authProvider.profile!),
+                        icon: const Icon(Icons.add),
+                        label: const Text('New Admission'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 24),
 

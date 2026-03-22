@@ -195,8 +195,8 @@ class _BillingDetailScreenState extends State<BillingDetailScreen> {
                         ),
                       ),
                     ),
-                    // Debt forgiveness button (only for admin/cashier with outstanding balance)
-                    if ((profile.role == UserRole.admin || profile.role == UserRole.cashier) &&
+                    // Debt forgiveness button (only for admin with outstanding balance)
+                    if (profile.role == UserRole.admin &&
                         widget.patient.outstandingBalance > 0) ...[
                       const SizedBox(height: 12),
                       SizedBox(
@@ -1022,7 +1022,7 @@ class _BillingDetailScreenState extends State<BillingDetailScreen> {
 
       // Save PDF to Downloads folder
       Directory? directory;
-      String fileName = 'CareLog_Bill_${widget.patient.admissionNumber}_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.pdf';
+      String fileName = 'CrownLog_Bill_${widget.patient.admissionNumber}_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.pdf';
 
       if (Platform.isAndroid) {
         // Request storage permission for Android

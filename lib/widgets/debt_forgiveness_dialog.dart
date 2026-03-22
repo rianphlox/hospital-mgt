@@ -46,7 +46,7 @@ class _DebtForgivenessDialogState extends State<DebtForgivenessDialog> {
         borderRadius: BorderRadius.circular(24),
       ),
       child: Container(
-        width: 450,
+        constraints: const BoxConstraints(maxWidth: 450),
         padding: const EdgeInsets.all(32),
         child: Form(
           key: _formKey,
@@ -80,6 +80,8 @@ class _DebtForgivenessDialogState extends State<DebtForgivenessDialog> {
                             fontSize: 14,
                             color: Colors.grey.shade600,
                           ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
                         ),
                       ],
                     ),

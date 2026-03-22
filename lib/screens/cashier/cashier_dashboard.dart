@@ -123,82 +123,142 @@ class _CashierBillingTabState extends State<CashierBillingTab> {
                               bottom: BorderSide(color: Color(0xFFE7E5E4)),
                             ),
                           ),
-                          child: const Row(
-                            children: [
-                              Expanded(
-                                flex: 3,
-                                child: Text(
-                                  'PATIENT',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFFA8A29E),
-                                    letterSpacing: 1.6,
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              final isSmallScreen = constraints.maxWidth < 600;
+                              if (isSmallScreen) {
+                                return const Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 4,
+                                      child: Text(
+                                        'PATIENT',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFFA8A29E),
+                                          letterSpacing: 1.6,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        'TYPE',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFFA8A29E),
+                                          letterSpacing: 1.6,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 3,
+                                      child: Text(
+                                        'STATUS',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFFA8A29E),
+                                          letterSpacing: 1.6,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        'ACTION',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFFA8A29E),
+                                          letterSpacing: 1.6,
+                                        ),
+                                        textAlign: TextAlign.right,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }
+                              return const Row(
+                                children: [
+                                  Expanded(
+                                    flex: 3,
+                                    child: Text(
+                                      'PATIENT',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFFA8A29E),
+                                        letterSpacing: 1.6,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                              Expanded(
-                                flex: 2,
-                                child: Text(
-                                  'TYPE',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFFA8A29E),
-                                    letterSpacing: 1.6,
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text(
+                                      'TYPE',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFFA8A29E),
+                                        letterSpacing: 1.6,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                              Expanded(
-                                flex: 2,
-                                child: Text(
-                                  'ID',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFFA8A29E),
-                                    letterSpacing: 1.6,
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text(
+                                      'ID',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFFA8A29E),
+                                        letterSpacing: 1.6,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                              Expanded(
-                                flex: 2,
-                                child: Text(
-                                  'WARD',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFFA8A29E),
-                                    letterSpacing: 1.6,
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text(
+                                      'WARD',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFFA8A29E),
+                                        letterSpacing: 1.6,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                              Expanded(
-                                flex: 2,
-                                child: Text(
-                                  'STATUS',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFFA8A29E),
-                                    letterSpacing: 1.6,
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text(
+                                      'STATUS',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFFA8A29E),
+                                        letterSpacing: 1.6,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                              Expanded(
-                                flex: 2,
-                                child: Text(
-                                  'ACTION',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFFA8A29E),
-                                    letterSpacing: 1.6,
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text(
+                                      'ACTION',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFFA8A29E),
+                                        letterSpacing: 1.6,
+                                      ),
+                                      textAlign: TextAlign.right,
+                                    ),
                                   ),
-                                  textAlign: TextAlign.right,
-                                ),
-                              ),
-                            ],
+                                ],
+                              );
+                            },
                           ),
                         ),
 
@@ -240,119 +300,201 @@ class _CashierBillingTabState extends State<CashierBillingTab> {
         decoration: const BoxDecoration(
           color: Colors.transparent,
         ),
-        child: Row(
-          children: [
-            Expanded(
-              flex: 3,
-              child: Text(
-                patient.name,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1C1917),
-                  fontSize: 14,
-                ),
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: SizedBox(
-                width: 80,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: patient.type == PatientType.inPatient
-                        ? const Color(0xFFDEF7EC) // Blue-50
-                        : const Color(0xFFFEF3C7), // Orange-50
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    patient.type.displayName,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: patient.type == PatientType.inPatient
-                          ? const Color(0xFF065F46) // Blue-600
-                          : const Color(0xFF92400E), // Orange-600
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Text(
-                patient.admissionNumber,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF78716C),
-                ),
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Text(
-                patient.ward,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF78716C),
-                ),
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: SizedBox(
-                width: 80,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: patient.status == PatientStatus.active
-                        ? const Color(0xFFD1FAE5) // Emerald-100
-                        : const Color(0xFFF5F5F4), // Stone-100
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    patient.status.name.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: patient.status == PatientStatus.active
-                          ? const Color(0xFF065F46) // Emerald-800
-                          : const Color(0xFFA8A29E), // Stone-400
-                      letterSpacing: 0.5,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                mainAxisSize: MainAxisSize.min,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isSmallScreen = constraints.maxWidth < 600;
+            if (isSmallScreen) {
+              return Row(
                 children: [
-                  Flexible(
+                  Expanded(
+                    flex: 4,
                     child: Text(
-                      'View Bill',
-                      style: TextStyle(
-                        fontSize: 12,
+                      patient.name,
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Theme.of(context).primaryColor,
+                        color: Color(0xFF1C1917),
+                        fontSize: 14,
                       ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: patient.type == PatientType.inPatient
+                            ? const Color(0xFFDEF7EC)
+                            : const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        patient.type == PatientType.inPatient ? 'IP' : 'OP',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: patient.type == PatientType.inPatient
+                              ? const Color(0xFF065F46)
+                              : const Color(0xFF92400E),
+                        ),
+                        textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 3,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: patient.status == PatientStatus.active
+                            ? const Color(0xFFD1FAE5)
+                            : const Color(0xFFF5F5F4),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        patient.status == PatientStatus.active ? 'ACTIVE' : 'DISCHARGED',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: patient.status == PatientStatus.active
+                              ? const Color(0xFF065F46)
+                              : const Color(0xFFA8A29E),
+                        ),
+                        textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Icon(
+                      Icons.chevron_right,
+                      size: 14,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                  ),
+                ],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    patient.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1C1917),
+                      fontSize: 14,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: patient.type == PatientType.inPatient
+                          ? const Color(0xFFDEF7EC) // Blue-50
+                          : const Color(0xFFFEF3C7), // Orange-50
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      patient.type.displayName,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: patient.type == PatientType.inPatient
+                            ? const Color(0xFF065F46) // Blue-600
+                            : const Color(0xFF92400E), // Orange-600
+                      ),
+                      textAlign: TextAlign.center,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(width: 2),
-                  Icon(
-                    Icons.chevron_right,
-                    size: 14,
-                    color: Theme.of(context).primaryColor,
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    patient.admissionNumber,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF78716C),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
-                ],
-              ),
-            ),
-          ],
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    patient.ward,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF78716C),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: patient.status == PatientStatus.active
+                          ? const Color(0xFFD1FAE5) // Emerald-100
+                          : const Color(0xFFF5F5F4), // Stone-100
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      patient.status.name.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: patient.status == PatientStatus.active
+                            ? const Color(0xFF065F46) // Emerald-800
+                            : const Color(0xFFA8A29E), // Stone-400
+                        letterSpacing: 0.5,
+                      ),
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          'View Bill',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).primaryColor,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      Icon(
+                        Icons.chevron_right,
+                        size: 14,
+                        color: Theme.of(context).primaryColor,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

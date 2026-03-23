@@ -49,3 +49,4 @@ google-services.json
 GoogleService-Info.plist
 firebase-debug.log
 .firebase/
+lib/config/firebase_config.dart

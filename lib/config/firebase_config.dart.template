@@ -1,0 +1,21 @@
+class FirebaseConfig {
+  // Firebase configuration template
+  // Copy this file to firebase_config.dart and replace with your actual values
+  static const String projectId = "your-firebase-project-id";
+  static const String appId = "your-firebase-app-id";
+  static const String apiKey = "your-firebase-api-key";
+  static const String authDomain = "your-project-id.firebaseapp.com";
+  static const String storageBucket = "your-project-id.firebasestorage.app";
+  static const String messagingSenderId = "your-messaging-sender-id";
+  static const String measurementId = ""; // Optional for analytics
+
+  static const Map<String, String> firebaseOptions = {
+    'projectId': projectId,
+    'appId': appId,
+    'apiKey': apiKey,
+    'authDomain': authDomain,
+    'storageBucket': storageBucket,
+    'messagingSenderId': messagingSenderId,
+    'measurementId': measurementId,
+  };
+}

@@ -112,11 +112,15 @@ class TreatmentItem {
   final String name;
   final int quantity;
   final int unitPrice; // 0 when pending pricing, set by admin
+  final String dosage; // e.g., "500mg", "2 tablets"
+  final String instructions; // e.g., "Take after meals", "IV slowly"
 
   TreatmentItem({
     required this.name,
     required this.quantity,
     this.unitPrice = 0, // Default to 0 for nurse entries
+    this.dosage = '',
+    this.instructions = '',
   });
 
   factory TreatmentItem.fromJson(Map<String, dynamic> json) {
@@ -124,6 +128,8 @@ class TreatmentItem {
       name: json['name'] as String,
       quantity: json['quantity'] as int,
       unitPrice: json['unitPrice'] as int? ?? 0,
+      dosage: json['dosage'] as String? ?? '',
+      instructions: json['instructions'] as String? ?? '',
     );
   }
 
@@ -132,6 +138,8 @@ class TreatmentItem {
       'name': name,
       'quantity': quantity,
       'unitPrice': unitPrice,
+      'dosage': dosage,
+      'instructions': instructions,
     };
   }
 

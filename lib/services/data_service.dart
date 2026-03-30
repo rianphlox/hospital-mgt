@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/patient_models.dart';
 import '../models/inventory_models.dart';
 import '../services/firebase_service.dart';
+import '../services/notification_service.dart';
 
 class DataService {
   static final FirebaseFirestore _firestore = FirebaseService.firestore;
@@ -155,6 +156,27 @@ class DataService {
       }
 
       await batch.commit();
+
+      // 🔔 Send notification after successful treatment logging
+      try {
+        // Get patient details for notification
+        final patientDoc = await _firestore.collection('patients').doc(patientId).get();
+        if (patientDoc.exists) {
+          final patientData = patientDoc.data() as Map<String, dynamic>;
+          final patientName = patientData['name'] as String;
+
+          await NotificationService().notifyTreatmentLogged(
+            patientName: patientName,
+            nurseName: treatment.nurseName,
+            patientId: patientId,
+            treatmentId: treatmentRef.id,
+            itemCount: treatment.items.length,
+          );
+        }
+      } catch (notificationError) {
+        // Don't fail the main operation if notification fails
+        print('Failed to send treatment notification: $notificationError');
+      }
     } catch (e) {
       FirebaseService.handleFirestoreError(
         e,
@@ -319,6 +341,28 @@ class DataService {
       }
 
       await batch.commit();
+
+      // 🔔 Send notification after successful payment recording
+      try {
+        // Get patient details for notification
+        final patientDoc = await _firestore.collection('patients').doc(patientId).get();
+        if (patientDoc.exists) {
+          final patientData = patientDoc.data() as Map<String, dynamic>;
+          final patientName = patientData['name'] as String;
+
+          await NotificationService().notifyPaymentReceived(
+            patientName: patientName,
+            cashierName: payment.cashierName,
+            patientId: patientId,
+            paymentId: paymentRef.id,
+            amount: payment.amount,
+            paymentMethod: payment.paymentMethod,
+          );
+        }
+      } catch (notificationError) {
+        // Don't fail the main operation if notification fails
+        print('Failed to send payment notification: $notificationError');
+      }
     } catch (e) {
       FirebaseService.handleFirestoreError(
         e,

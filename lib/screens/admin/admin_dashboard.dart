@@ -4,6 +4,7 @@ import '../../providers/data_provider.dart';
 import '../../models/user_models.dart';
 import 'treatment_pricing_screen.dart';
 import 'patient_management_screen.dart';
+import '../patient_history_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
   final UserProfile profile;
@@ -149,6 +150,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       Icons.people,
                       const Color(0xFFDC2626),
                       () => _showPatientManagement(),
+                    ),
+                    _buildManagementCard(
+                      'Patient History',
+                      'View patient history with date range filtering',
+                      Icons.history,
+                      const Color(0xFF059669),
+                      () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const PatientHistoryScreen(),
+                        ),
+                      ),
                     ),
                   ],
                 ),

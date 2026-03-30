@@ -6,6 +6,7 @@ import '../models/user_models.dart';
 import 'nurse/nurse_dashboard.dart';
 import 'cashier/cashier_dashboard.dart';
 import 'admin/admin_dashboard.dart';
+import 'patient_history_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -117,11 +118,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(width: 12),
                     PopupMenuButton<String>(
                       onSelected: (value) {
+                        print('PopupMenu selected: $value'); // Debug print
                         if (value == 'logout') {
                           _showLogoutDialog(context, authProvider);
+                        } else if (value == 'patient_history') {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const PatientHistoryScreen(),
+                            ),
+                          );
                         }
                       },
+                      // Add this to make it more obvious it's tappable
+                      tooltip: 'Account menu',
                       itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'patient_history',
+                          child: Row(
+                            children: [
+                              Icon(Icons.history, color: Color(0xFF059669)),
+                              SizedBox(width: 8),
+                              Text('Patient History'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuDivider(),
                         const PopupMenuItem(
                           value: 'logout',
                           child: Row(

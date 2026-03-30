@@ -24,6 +24,13 @@ class _NurseDashboardState extends State<NurseDashboard> {
       builder: (context, dataProvider, authProvider, _) {
         final patients = dataProvider.patients;
         final filteredPatients = _filterPatients(patients);
+        final profile = authProvider.profile;
+
+        if (profile == null) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
 
         return Padding(
           padding: const EdgeInsets.all(16.0),

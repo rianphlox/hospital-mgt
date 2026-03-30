@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'services/firebase_service.dart';
+import 'services/notification_service.dart' show firebaseMessagingBackgroundHandler;
 import 'providers/auth_provider.dart';
 import 'providers/data_provider.dart';
 import 'screens/splash_screen.dart';
@@ -10,6 +12,10 @@ import 'screens/dashboard_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await FirebaseService.initialize();
+
+  // Initialize Firebase Messaging background handler
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
   runApp(const CrownLogApp());
 }
 

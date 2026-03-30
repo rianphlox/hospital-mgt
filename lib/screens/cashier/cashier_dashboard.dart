@@ -557,4 +557,5 @@ class _CashierBillingTabState extends State<CashierBillingTab> {
       ),
     );
   }
+
 }

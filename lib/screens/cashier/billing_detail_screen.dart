@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:share_plus/share_plus.dart';
+// import 'package:downloads_path_provider_28/downloads_path_provider_28.dart'; // Removed due to namespace issues
 import 'dart:io';
 import '../../models/patient_models.dart';
 import '../../models/user_models.dart';
@@ -651,8 +654,31 @@ class _BillingDetailScreenState extends State<BillingDetailScreen> {
   }
 
   Future<void> _generateBillPDF() async {
+    // Get references before any async operations
+    final dataProvider = context.read<DataProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+
     try {
-      final dataProvider = context.read<DataProvider>();
+
+      // Request storage permissions for Android
+      if (Platform.isAndroid) {
+        final storagePermission = await Permission.storage.request();
+        if (storagePermission.isDenied) {
+          if (mounted) {
+            messenger.showSnackBar(
+              SnackBar(
+                content: Text('Storage permission needed to save receipt'),
+                backgroundColor: Colors.orange,
+                action: SnackBarAction(
+                  label: 'Settings',
+                  onPressed: () => openAppSettings(),
+                ),
+              ),
+            );
+          }
+          return;
+        }
+      }
       final treatments = dataProvider.treatments;
       final payments = dataProvider.payments;
 
@@ -672,13 +698,23 @@ class _BillingDetailScreenState extends State<BillingDetailScreen> {
       );
       final balance = totalBilled - totalPaid;
 
-      // Create PDF document
+      // Load custom fonts that support Unicode characters like ₦
+      final regularFontData = await rootBundle.load('assets/fonts/Roboto-Regular.ttf');
+      final boldFontData = await rootBundle.load('assets/fonts/Roboto-Bold.ttf');
+      final regularFont = pw.Font.ttf(regularFontData);
+      final boldFont = pw.Font.ttf(boldFontData);
+
+      // Create PDF document with custom theme
       final pdf = pw.Document();
 
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
           margin: const pw.EdgeInsets.all(32),
+          theme: pw.ThemeData.withFont(
+            base: regularFont,
+            bold: boldFont,
+          ),
           build: (pw.Context context) {
             return [
               // Header with Logo
@@ -1020,93 +1056,175 @@ class _BillingDetailScreenState extends State<BillingDetailScreen> {
         ),
       );
 
-      // Save PDF to Downloads folder
-      Directory? directory;
+      // Save PDF to easily accessible Downloads folder (Android) or Documents (iOS)
       String fileName = 'CrownLog_Bill_${widget.patient.admissionNumber}_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.pdf';
+      File? savedFile;
+      String locationMessage = '';
 
-      if (Platform.isAndroid) {
-        // Request storage permission for Android
-        var status = await Permission.storage.status;
-        if (!status.isGranted) {
-          status = await Permission.storage.request();
-        }
+      try {
+        if (Platform.isAndroid) {
+          // For Android, try multiple accessible locations in order of preference
+          try {
+            // First try: Public Downloads folder (most accessible)
+            String downloadsPath = '/storage/emulated/0/Download';
+            Directory downloadsDirectory = Directory(downloadsPath);
 
-        // For Android 10+ (API 29+), use external storage directory
-        if (status.isGranted) {
-          directory = Directory('/storage/emulated/0/Download');
-          if (!await directory.exists()) {
-            directory = await getExternalStorageDirectory();
+            if (await downloadsDirectory.exists()) {
+              savedFile = File('$downloadsPath/$fileName');
+              await savedFile.writeAsBytes(await pdf.save());
+              locationMessage = 'Downloaded to: Downloads/$fileName';
+            } else {
+              throw Exception('Downloads folder not accessible');
+            }
+          } catch (downloadsError) {
+            // Second try: External storage Documents folder
+            Directory? externalDir = await getExternalStorageDirectory();
+            if (externalDir != null) {
+              // Try to access the public Documents folder first
+              String publicPath = '/storage/emulated/0/Documents';
+              Directory publicDocuments = Directory(publicPath);
+
+              if (await publicDocuments.exists()) {
+                savedFile = File('$publicPath/$fileName');
+                await savedFile.writeAsBytes(await pdf.save());
+                locationMessage = 'Downloaded to: Documents/$fileName';
+              } else {
+                // Fallback: Create Documents folder in app directory
+                Directory documentsDir = Directory('${externalDir.path}/Documents');
+                if (!await documentsDir.exists()) {
+                  await documentsDir.create(recursive: true);
+                }
+                savedFile = File('${documentsDir.path}/$fileName');
+                await savedFile.writeAsBytes(await pdf.save());
+                locationMessage = 'Downloaded to: Phone Storage/Documents/$fileName';
+              }
+            }
           }
         } else {
-          // Fallback to app documents if permission denied
-          directory = await getApplicationDocumentsDirectory();
+          // For iOS, save to Documents directory (accessible via Files app)
+          Directory documentsDirectory = await getApplicationDocumentsDirectory();
+          savedFile = File('${documentsDirectory.path}/$fileName');
+          await savedFile.writeAsBytes(await pdf.save());
+          locationMessage = 'Downloaded to: Files App > On My iPhone > CrownLog > $fileName';
         }
-      } else {
-        // For iOS, use app documents directory
-        directory = await getApplicationDocumentsDirectory();
-      }
 
-      final file = File('${directory!.path}/$fileName');
-      await file.writeAsBytes(await pdf.save());
-
-      if (mounted) {
-        final isDownloadsFolder = directory.path.contains('Download') || directory.path.contains('download');
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              isDownloadsFolder
-                ? 'Bill saved to Downloads: $fileName'
-                : 'Bill saved: $fileName'
-            ),
-            backgroundColor: const Color(0xFF10B981),
-            duration: const Duration(seconds: 4),
-            action: SnackBarAction(
-              label: 'Details',
-              onPressed: () async {
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('PDF Generated Successfully'),
-                    content: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('File: $fileName'),
-                        const SizedBox(height: 8),
-                        Text(
-                          isDownloadsFolder
-                            ? 'Location: Downloads folder'
-                            : 'Location: App documents'
+        if (mounted && savedFile != null) {
+          messenger.showSnackBar(
+            SnackBar(
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('✅ Receipt saved to Downloads!'),
+                  Text(locationMessage, style: TextStyle(fontSize: 12, color: Colors.white70)),
+                ],
+              ),
+              backgroundColor: const Color(0xFF10B981),
+              duration: const Duration(seconds: 5),
+              action: SnackBarAction(
+                label: 'Open Location',
+                textColor: Colors.white,
+                onPressed: () async {
+                  // Show detailed location info
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: Row(
+                        children: [
+                          Icon(Icons.folder, color: Colors.blue.shade600),
+                          const SizedBox(width: 8),
+                          const Text('File Location'),
+                        ],
+                      ),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('File: $fileName'),
+                          const SizedBox(height: 8),
+                          Text(locationMessage),
+                          const SizedBox(height: 16),
+                          Text(
+                            Platform.isAndroid
+                              ? '📁 Open your file manager app (like Google Files or Samsung My Files) and look in Downloads or Documents folder. The file should be easily accessible.'
+                              : '📁 Open the Files app on your iPhone, tap "On My iPhone" then look for the CrownLog folder. You can also access it from the Files widget.',
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('OK'),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Full path: ${file.path}',
-                          style: const TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          '📁 You can find this file in your device\'s Downloads folder or file manager.',
-                          style: TextStyle(fontSize: 12),
-                        ),
+                        if (savedFile != null)
+                          ElevatedButton.icon(
+                            onPressed: () async {
+                              final ctx = context;
+                              Navigator.of(ctx).pop();
+                              try {
+                                await Share.shareXFiles(
+                                  [XFile(savedFile!.path)],
+                                  text: 'CrownLog Hospital Bill for ${widget.patient.name}',
+                                );
+                              } catch (e) {
+                                // Error during sharing - we can log this or handle it silently
+                                debugPrint('Share error: $e');
+                              }
+                            },
+                            icon: const Icon(Icons.share),
+                            label: const Text('Share'),
+                          ),
                       ],
                     ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('OK'),
-                      ),
-                    ],
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
-          ),
-        );
+          );
+        }
+      } catch (storageError) {
+        // If Downloads access fails, save to app directory and inform user
+        try {
+          Directory appDir = await getApplicationDocumentsDirectory();
+          savedFile = File('${appDir.path}/$fileName');
+          await savedFile.writeAsBytes(await pdf.save());
+
+          if (mounted) {
+            messenger.showSnackBar(
+              SnackBar(
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('⚠️ Bill saved to app storage'),
+                    Text('Use Share button to save to Downloads', style: TextStyle(fontSize: 12)),
+                  ],
+                ),
+                backgroundColor: Colors.orange.shade600,
+                duration: const Duration(seconds: 6),
+                action: SnackBarAction(
+                  label: 'Share',
+                  textColor: Colors.white,
+                  onPressed: () async {
+                    try {
+                      await Share.shareXFiles([XFile(savedFile!.path)]);
+                    } catch (e) {
+                      // Error during sharing - we can log this or handle it silently
+                      debugPrint('Share error: $e');
+                    }
+                  },
+                ),
+              ),
+            );
+          }
+        } catch (e) {
+          throw Exception('Failed to save PDF: $e');
+        }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           SnackBar(
             content: Text('Error generating PDF: $e'),
             backgroundColor: Colors.red,
@@ -1117,11 +1235,8 @@ class _BillingDetailScreenState extends State<BillingDetailScreen> {
   }
 
   String _formatPdfCurrency(int amount) {
-    // Format currency for PDF with Naira symbol
-    final formatter = NumberFormat.currency(
-      symbol: '₦', // Use direct Naira symbol
-      decimalDigits: 0,
-    );
-    return formatter.format(amount);
+    // Format currency for PDF with proper Unicode support using custom font
+    final formatter = NumberFormat('#,###');
+    return '\u{20A6}${formatter.format(amount)}';
   }
 }

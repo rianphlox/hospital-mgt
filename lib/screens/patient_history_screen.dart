@@ -785,13 +785,38 @@ class _PatientHistoryScreenState extends State<PatientHistoryScreen>
     try {
       // Request storage permissions for Android
       if (Platform.isAndroid) {
-        final storagePermission = await Permission.storage.request();
-        if (storagePermission.isDenied) {
+        bool hasPermission = false;
+
+        // Check Android version and request appropriate permissions
+        if (await Permission.manageExternalStorage.isGranted) {
+          hasPermission = true;
+        } else {
+          // For Android 11+ (API 30+), request MANAGE_EXTERNAL_STORAGE
+          final manageStorageResult = await Permission.manageExternalStorage.request();
+          if (manageStorageResult.isGranted) {
+            hasPermission = true;
+          } else {
+            // Fallback: try regular storage permission for older Android versions
+            final storageResult = await Permission.storage.request();
+            hasPermission = storageResult.isGranted;
+          }
+        }
+
+        if (!hasPermission) {
           if (mounted) {
             messenger.showSnackBar(
               SnackBar(
-                content: const Text('Storage permission needed to export data'),
+                content: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Storage permission needed to export data'),
+                    Text('Please allow "All files access" in Settings',
+                         style: TextStyle(fontSize: 12, color: Colors.white70)),
+                  ],
+                ),
                 backgroundColor: Colors.orange,
+                duration: const Duration(seconds: 5),
                 action: SnackBarAction(
                   label: 'Settings',
                   onPressed: () => openAppSettings(),

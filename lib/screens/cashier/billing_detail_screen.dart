@@ -662,13 +662,38 @@ class _BillingDetailScreenState extends State<BillingDetailScreen> {
 
       // Request storage permissions for Android
       if (Platform.isAndroid) {
-        final storagePermission = await Permission.storage.request();
-        if (storagePermission.isDenied) {
+        bool hasPermission = false;
+
+        // Check Android version and request appropriate permissions
+        if (await Permission.manageExternalStorage.isGranted) {
+          hasPermission = true;
+        } else {
+          // For Android 11+ (API 30+), request MANAGE_EXTERNAL_STORAGE
+          final manageStorageResult = await Permission.manageExternalStorage.request();
+          if (manageStorageResult.isGranted) {
+            hasPermission = true;
+          } else {
+            // Fallback: try regular storage permission for older Android versions
+            final storageResult = await Permission.storage.request();
+            hasPermission = storageResult.isGranted;
+          }
+        }
+
+        if (!hasPermission) {
           if (mounted) {
             messenger.showSnackBar(
               SnackBar(
-                content: Text('Storage permission needed to save receipt'),
+                content: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Storage permission needed to save receipt'),
+                    Text('Please allow "All files access" in Settings',
+                         style: TextStyle(fontSize: 12, color: Colors.white70)),
+                  ],
+                ),
                 backgroundColor: Colors.orange,
+                duration: const Duration(seconds: 5),
                 action: SnackBarAction(
                   label: 'Settings',
                   onPressed: () => openAppSettings(),
@@ -698,13 +723,13 @@ class _BillingDetailScreenState extends State<BillingDetailScreen> {
       );
       final balance = totalBilled - totalPaid;
 
-      // Load custom fonts that support Unicode characters like ₦
-      final regularFontData = await rootBundle.load('assets/fonts/Roboto-Regular.ttf');
-      final boldFontData = await rootBundle.load('assets/fonts/Roboto-Bold.ttf');
-      final regularFont = pw.Font.ttf(regularFontData);
-      final boldFont = pw.Font.ttf(boldFontData);
+      // Load fonts that support Unicode (Naira symbol)
+      final fontData = await rootBundle.load("assets/fonts/Roboto-Regular.ttf");
+      final fontBoldData = await rootBundle.load("assets/fonts/Roboto-Bold.ttf");
+      final ttf = pw.Font.ttf(fontData);
+      final ttfBold = pw.Font.ttf(fontBoldData);
 
-      // Create PDF document with custom theme
+      // Create PDF document
       final pdf = pw.Document();
 
       pdf.addPage(
@@ -712,8 +737,8 @@ class _BillingDetailScreenState extends State<BillingDetailScreen> {
           pageFormat: PdfPageFormat.a4,
           margin: const pw.EdgeInsets.all(32),
           theme: pw.ThemeData.withFont(
-            base: regularFont,
-            bold: boldFont,
+            base: ttf,
+            bold: ttfBold,
           ),
           build: (pw.Context context) {
             return [
@@ -1235,8 +1260,8 @@ class _BillingDetailScreenState extends State<BillingDetailScreen> {
   }
 
   String _formatPdfCurrency(int amount) {
-    // Format currency for PDF with proper Unicode support using custom font
+    // Format currency for PDF with Naira symbol using Unicode
     final formatter = NumberFormat('#,###');
-    return '\u{20A6}${formatter.format(amount)}';
+    return '₦${formatter.format(amount)}';
   }
 }

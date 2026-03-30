@@ -50,3 +50,13 @@ GoogleService-Info.plist
 firebase-debug.log
 .firebase/
 lib/config/firebase_config.dart
+
+# Local scripts and data population (contains secrets)
+populate_firestore.dart
+simple_populate.dart
+test_firebase.dart
+scripts/
+android/build/
+flutter_01.png
+assets/images/dash_reference.jpeg
+assets/images/screenshot_error.png

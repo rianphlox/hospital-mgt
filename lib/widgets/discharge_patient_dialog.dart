@@ -126,10 +126,11 @@ class _DischargePatientDialogState extends State<DischargePatientDialog> {
                     ? const Center(child: CircularProgressIndicator())
                     : Form(
                         key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Patient info summary
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Patient info summary
                             Container(
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
@@ -209,11 +210,13 @@ class _DischargePatientDialogState extends State<DischargePatientDialog> {
                                         size: 18,
                                       ),
                                       const SizedBox(width: 8),
-                                      Text(
-                                        'Calculated from priced treatments: ₦${_calculatedBill.toString()}',
-                                        style: const TextStyle(
-                                          color: Color(0xFF065F46),
-                                          fontSize: 14,
+                                      Expanded(
+                                        child: Text(
+                                          'Calculated from priced treatments: ₦${_calculatedBill.toString()}',
+                                          style: const TextStyle(
+                                            color: Color(0xFF065F46),
+                                            fontSize: 14,
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -242,38 +245,35 @@ class _DischargePatientDialogState extends State<DischargePatientDialog> {
                             const SizedBox(height: 24),
 
                             // Discharge notes
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Discharge Notes',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF1F2937),
-                                    ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Discharge Notes',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF1F2937),
                                   ),
-                                  const SizedBox(height: 8),
-                                  Expanded(
-                                    child: TextFormField(
-                                      controller: _notesController,
-                                      decoration: const InputDecoration(
-                                        hintText: 'Enter discharge notes, medications, follow-up instructions...',
-                                        border: OutlineInputBorder(),
-                                        alignLabelWithHint: true,
-                                      ),
-                                      maxLines: null,
-                                      expands: true,
-                                      textAlignVertical: TextAlignVertical.top,
-                                    ),
+                                ),
+                                const SizedBox(height: 8),
+                                TextFormField(
+                                  controller: _notesController,
+                                  decoration: const InputDecoration(
+                                    hintText: 'Enter discharge notes, medications, follow-up instructions...',
+                                    border: OutlineInputBorder(),
+                                    alignLabelWithHint: true,
                                   ),
-                                ],
-                              ),
+                                  maxLines: 5,
+                                  minLines: 3,
+                                  textAlignVertical: TextAlignVertical.top,
+                                ),
+                              ],
                             ),
                           ],
                         ),
                       ),
+                    ),
               ),
             ),
 

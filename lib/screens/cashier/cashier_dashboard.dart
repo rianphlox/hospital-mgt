@@ -43,7 +43,7 @@ class _CashierBillingTabState extends State<CashierBillingTab> {
         final filteredPatients = _filterPatients(patients);
 
         return Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -51,214 +51,120 @@ class _CashierBillingTabState extends State<CashierBillingTab> {
               const Text(
                 'Billing Dashboard',
                 style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1C1917),
+                  fontSize: 36,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.black,
+                  letterSpacing: -1.0,
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
 
               // Search bar
-              Stack(
-                children: [
-                  TextField(
-                      onChanged: (value) => setState(() => _searchQuery = value),
-                      decoration: const InputDecoration(
-                        hintText: 'Search patient for billing...',
-                        contentPadding: EdgeInsets.only(left: 48, right: 16, top: 16, bottom: 16),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(16)),
-                          borderSide: BorderSide(color: Color(0xFFE7E5E4)),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(16)),
-                          borderSide: BorderSide(color: Color(0xFFE7E5E4)),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(16)),
-                          borderSide: BorderSide(color: Color(0xFF10B981), width: 2),
-                        ),
-                        filled: true,
-                        fillColor: Colors.white,
-                      ),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFE7E5E4)),
+                ),
+                child: TextField(
+                  onChanged: (value) => setState(() => _searchQuery = value),
+                  decoration: const InputDecoration(
+                    hintText: 'Search patient for billing...',
+                    hintStyle: TextStyle(
+                      color: Color(0xFFA8A29E),
+                      fontWeight: FontWeight.w500,
+                      fontSize: 16,
                     ),
-                    const Positioned(
-                      left: 16,
-                      top: 16,
+                    prefixIcon: Padding(
+                      padding: EdgeInsets.only(left: 20, right: 12),
                       child: Icon(
                         Icons.search,
                         color: Color(0xFF78716C),
-                        size: 20,
+                        size: 24,
                       ),
                     ),
-                  ],
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(vertical: 20),
+                  ),
                 ),
-              const SizedBox(height: 24),
+              ),
+              const SizedBox(height: 32),
 
               // Patients table
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(32),
                     border: Border.all(color: const Color(0xFFE7E5E4)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.02),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(32),
                     child: Column(
                       children: [
                         // Table header
                         Container(
-                          padding: const EdgeInsets.all(24),
+                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
                           decoration: const BoxDecoration(
-                            color: Color(0xFFFAFAF9),
+                            color: Colors.white,
                             border: Border(
-                              bottom: BorderSide(color: Color(0xFFE7E5E4)),
+                              bottom: BorderSide(color: Color(0xFFF5F5F4)),
                             ),
                           ),
-                          child: LayoutBuilder(
-                            builder: (context, constraints) {
-                              final isSmallScreen = constraints.maxWidth < 600;
-                              if (isSmallScreen) {
-                                return const Row(
-                                  children: [
-                                    Expanded(
-                                      flex: 4,
-                                      child: Text(
-                                        'PATIENT',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFFA8A29E),
-                                          letterSpacing: 1.6,
-                                        ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 2,
-                                      child: Text(
-                                        'TYPE',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFFA8A29E),
-                                          letterSpacing: 1.6,
-                                        ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 3,
-                                      child: Text(
-                                        'STATUS',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFFA8A29E),
-                                          letterSpacing: 1.6,
-                                        ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 2,
-                                      child: Text(
-                                        'ACTION',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFFA8A29E),
-                                          letterSpacing: 1.6,
-                                        ),
-                                        textAlign: TextAlign.right,
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              }
-                              return const Row(
-                                children: [
-                                  Expanded(
-                                    flex: 3,
-                                    child: Text(
-                                      'PATIENT',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFFA8A29E),
-                                        letterSpacing: 1.6,
-                                      ),
-                                    ),
+                          child: const Row(
+                            children: [
+                              Expanded(
+                                flex: 4,
+                                child: Text(
+                                  'PATIENT',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w900,
+                                    color: Color(0xFFA8A29E),
+                                    letterSpacing: 1.5,
                                   ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text(
-                                      'TYPE',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFFA8A29E),
-                                        letterSpacing: 1.6,
-                                      ),
-                                    ),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  'TYPE',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w900,
+                                    color: Color(0xFFA8A29E),
+                                    letterSpacing: 1.5,
                                   ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text(
-                                      'ID',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFFA8A29E),
-                                        letterSpacing: 1.6,
-                                      ),
-                                    ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                              Expanded(
+                                flex: 3,
+                                child: Text(
+                                  'STATUS',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w900,
+                                    color: Color(0xFFA8A29E),
+                                    letterSpacing: 1.5,
                                   ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text(
-                                      'WARD',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFFA8A29E),
-                                        letterSpacing: 1.6,
-                                      ),
-                                    ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  'ACTION',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w900,
+                                    color: Color(0xFFA8A29E),
+                                    letterSpacing: 1.5,
                                   ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text(
-                                      'STATUS',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFFA8A29E),
-                                        letterSpacing: 1.6,
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text(
-                                      'ACTION',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFFA8A29E),
-                                        letterSpacing: 1.6,
-                                      ),
-                                      textAlign: TextAlign.right,
-                                    ),
-                                  ),
-                                ],
-                              );
-                            },
+                                  textAlign: TextAlign.right,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
 
@@ -267,11 +173,14 @@ class _CashierBillingTabState extends State<CashierBillingTab> {
                           child: filteredPatients.isEmpty
                               ? _buildEmptyState()
                               : ListView.separated(
+                                  padding: EdgeInsets.zero,
                                   itemCount: filteredPatients.length,
                                   separatorBuilder: (context, index) => const Divider(
                                     height: 1,
                                     color: Color(0xFFF5F5F4),
                                     thickness: 1,
+                                    indent: 32,
+                                    endIndent: 32,
                                   ),
                                   itemBuilder: (context, index) {
                                     final patient = filteredPatients[index];
@@ -294,207 +203,75 @@ class _CashierBillingTabState extends State<CashierBillingTab> {
   Widget _buildPatientRow(Patient patient) {
     return InkWell(
       onTap: () => _navigateToBillingDetail(patient),
-      onHover: (hovering) => setState(() {}),
       child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Colors.transparent,
-        ),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isSmallScreen = constraints.maxWidth < 600;
-            if (isSmallScreen) {
-              return Row(
-                children: [
-                  Expanded(
-                    flex: 4,
-                    child: Text(
-                      patient.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1C1917),
-                        fontSize: 14,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                    ),
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 4,
+              child: Text(
+                patient.name,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: Colors.black,
+                  fontSize: 18,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD1FAE5), // Emerald-100
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                  Expanded(
-                    flex: 2,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: patient.type == PatientType.inPatient
-                            ? const Color(0xFFDEF7EC)
-                            : const Color(0xFFFEF3C7),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        patient.type == PatientType.inPatient ? 'IP' : 'OP',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                          color: patient.type == PatientType.inPatient
-                              ? const Color(0xFF065F46)
-                              : const Color(0xFF92400E),
-                        ),
-                        textAlign: TextAlign.center,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 3,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: patient.status == PatientStatus.active
-                            ? const Color(0xFFD1FAE5)
-                            : const Color(0xFFF5F5F4),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        patient.status == PatientStatus.active ? 'ACTIVE' : 'DISCHARGED',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                          color: patient.status == PatientStatus.active
-                              ? const Color(0xFF065F46)
-                              : const Color(0xFFA8A29E),
-                        ),
-                        textAlign: TextAlign.center,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Icon(
-                      Icons.chevron_right,
-                      size: 14,
-                      color: Theme.of(context).primaryColor,
-                    ),
-                  ),
-                ],
-              );
-            }
-            return Row(
-              children: [
-                Expanded(
-                  flex: 3,
                   child: Text(
-                    patient.name,
+                    patient.type == PatientType.inPatient ? 'IP' : 'OP',
                     style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1C1917),
-                      fontSize: 14,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: patient.type == PatientType.inPatient
-                          ? const Color(0xFFDEF7EC) // Blue-50
-                          : const Color(0xFFFEF3C7), // Orange-50
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      patient.type.displayName,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: patient.type == PatientType.inPatient
-                            ? const Color(0xFF065F46) // Blue-600
-                            : const Color(0xFF92400E), // Orange-600
-                      ),
-                      textAlign: TextAlign.center,
-                      overflow: TextOverflow.ellipsis,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF065F46), // Emerald-800
                     ),
                   ),
                 ),
-                Expanded(
-                  flex: 2,
+              ),
+            ),
+            Expanded(
+              flex: 3,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD1FAE5), // Emerald-100
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                   child: Text(
-                    patient.admissionNumber,
+                    patient.status.name.toUpperCase(),
                     style: const TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF78716C),
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    patient.ward,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF78716C),
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: patient.status == PatientStatus.active
-                          ? const Color(0xFFD1FAE5) // Emerald-100
-                          : const Color(0xFFF5F5F4), // Stone-100
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      patient.status.name.toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: patient.status == PatientStatus.active
-                            ? const Color(0xFF065F46) // Emerald-800
-                            : const Color(0xFFA8A29E), // Stone-400
-                        letterSpacing: 0.5,
-                      ),
-                      textAlign: TextAlign.center,
-                      overflow: TextOverflow.ellipsis,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF065F46), // Emerald-800
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ),
-                Expanded(
-                  flex: 2,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          'View Bill',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).primaryColor,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 2),
-                      Icon(
-                        Icons.chevron_right,
-                        size: 14,
-                        color: Theme.of(context).primaryColor,
-                      ),
-                    ],
-                  ),
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Icon(
+                  Icons.chevron_right_rounded,
+                  size: 24,
+                  color: const Color(0xFF10B981).withValues(alpha: 0.8),
                 ),
-              ],
-            );
-          },
+              ),
+            ),
+          ],
         ),
       ),
     );

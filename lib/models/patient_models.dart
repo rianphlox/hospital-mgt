@@ -36,6 +36,11 @@ class Patient {
   final DateTime createdAt;
   final DateTime? dischargedAt;
   final int outstandingBalance; // Total unpaid balance across all visits
+  /// Optional link to the Patient Register (`patient_register` collection).
+  /// Set when an admission is started from a register record.
+  final String? registerPatientId;
+  /// Hospital card number from the Patient Register, e.g. "B 50".
+  final String? cardNumber;
 
   Patient({
     required this.id,
@@ -47,6 +52,8 @@ class Patient {
     required this.createdAt,
     this.dischargedAt,
     this.outstandingBalance = 0,
+    this.registerPatientId,
+    this.cardNumber,
   });
 
   factory Patient.fromJson(Map<String, dynamic> json, String id) {
@@ -65,6 +72,8 @@ class Patient {
           ? (json['dischargedAt'] as Timestamp).toDate()
           : null,
       outstandingBalance: json['outstandingBalance'] as int? ?? 0,
+      registerPatientId: json['registerPatientId'] as String?,
+      cardNumber: json['cardNumber'] as String?,
     );
   }
 
@@ -80,6 +89,9 @@ class Patient {
           ? Timestamp.fromDate(dischargedAt!)
           : null,
       'outstandingBalance': outstandingBalance,
+      // Only written when set, so existing admission documents are unchanged.
+      if (registerPatientId != null) 'registerPatientId': registerPatientId,
+      if (cardNumber != null) 'cardNumber': cardNumber,
     };
   }
 
@@ -93,6 +105,8 @@ class Patient {
     DateTime? createdAt,
     DateTime? dischargedAt,
     int? outstandingBalance,
+    String? registerPatientId,
+    String? cardNumber,
   }) {
     return Patient(
       id: id ?? this.id,
@@ -104,6 +118,8 @@ class Patient {
       createdAt: createdAt ?? this.createdAt,
       dischargedAt: dischargedAt ?? this.dischargedAt,
       outstandingBalance: outstandingBalance ?? this.outstandingBalance,
+      registerPatientId: registerPatientId ?? this.registerPatientId,
+      cardNumber: cardNumber ?? this.cardNumber,
     );
   }
 }

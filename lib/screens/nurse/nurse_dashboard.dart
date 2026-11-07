@@ -7,6 +7,7 @@ import '../../models/user_models.dart';
 import '../../widgets/patient_card.dart';
 import '../../widgets/add_patient_dialog.dart';
 import 'patient_detail_screen.dart';
+import '../register/patient_register_screen.dart';
 
 class NurseDashboard extends StatefulWidget {
   const NurseDashboard({super.key});
@@ -81,7 +82,13 @@ class _NurseDashboardState extends State<NurseDashboard> {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            const SizedBox(width: 8),
+                            IconButton.outlined(
+                              tooltip: 'Patient Register',
+                              onPressed: () => _openPatientRegister(context, authProvider.profile!),
+                              icon: const Icon(Icons.manage_search, size: 20),
+                            ),
+                            const SizedBox(width: 8),
                             ElevatedButton.icon(
                               onPressed: () => _showAddPatientDialog(context, authProvider.profile!),
                               icon: const Icon(Icons.add, size: 16),
@@ -138,6 +145,18 @@ class _NurseDashboardState extends State<NurseDashboard> {
                           ],
                         ),
                       ),
+                      OutlinedButton.icon(
+                        onPressed: () => _openPatientRegister(context, authProvider.profile!),
+                        icon: const Icon(Icons.manage_search),
+                        label: const Text('Patient Register'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
                       ElevatedButton.icon(
                         onPressed: () => _showAddPatientDialog(context, authProvider.profile!),
                         icon: const Icon(Icons.add),
@@ -330,6 +349,14 @@ class _NurseDashboardState extends State<NurseDashboard> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => PatientDetailScreen(patient: patient),
+      ),
+    );
+  }
+
+  void _openPatientRegister(BuildContext context, UserProfile profile) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => PatientRegisterScreen(profile: profile),
       ),
     );
   }

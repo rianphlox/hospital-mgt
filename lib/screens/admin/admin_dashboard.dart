@@ -6,6 +6,8 @@ import 'treatment_pricing_screen.dart';
 import 'patient_management_screen.dart';
 import 'financial_reports_screen.dart';
 import '../patient_history_screen.dart';
+import '../register/patient_register_screen.dart';
+import 'import_patients_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
   final UserProfile profile;
@@ -160,6 +162,28 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       () => Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (context) => FinancialReportsScreen(adminProfile: widget.profile),
+                        ),
+                      ),
+                    ),
+                    _buildManagementCard(
+                      'Patient Register',
+                      'Find patients by card no, name or age',
+                      Icons.manage_search,
+                      const Color(0xFF0EA5E9),
+                      () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => PatientRegisterScreen(profile: widget.profile),
+                        ),
+                      ),
+                    ),
+                    _buildManagementCard(
+                      'Import Patients',
+                      'Load register entries from a CSV or JSON file',
+                      Icons.upload_file,
+                      const Color(0xFFF59E0B),
+                      () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => ImportPatientsScreen(adminProfile: widget.profile),
                         ),
                       ),
                     ),

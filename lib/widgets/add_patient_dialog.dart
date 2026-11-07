@@ -8,9 +8,18 @@ import '../providers/data_provider.dart';
 class AddPatientDialog extends StatefulWidget {
   final UserProfile profile;
 
+  /// Optional values used when an admission is started from the Patient
+  /// Register. When null the dialog behaves exactly as before.
+  final String? initialName;
+  final String? registerPatientId;
+  final String? cardNumber;
+
   const AddPatientDialog({
     super.key,
     required this.profile,
+    this.initialName,
+    this.registerPatientId,
+    this.cardNumber,
   });
 
   @override
@@ -59,6 +68,9 @@ class _AddPatientDialogState extends State<AddPatientDialog> {
   void initState() {
     super.initState();
     _selectedWard = widget.profile.ward ?? 'General Ward';
+    if (widget.initialName != null) {
+      _nameController.text = _toTitleCase(widget.initialName!);
+    }
   }
 
   @override
@@ -91,6 +103,16 @@ class _AddPatientDialogState extends State<AddPatientDialog> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+              if (widget.cardNumber != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Register card no: ${widget.cardNumber}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF78716C),
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
 
               // Patient type selector
@@ -325,6 +347,8 @@ class _AddPatientDialogState extends State<AddPatientDialog> {
       type: _selectedType,
       status: PatientStatus.active,
       createdAt: DateTime.now(),
+      registerPatientId: widget.registerPatientId,
+      cardNumber: widget.cardNumber,
     );
 
     try {

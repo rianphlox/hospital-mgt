@@ -54,6 +54,7 @@ dependencies:
 
   # Utilities & Helpers
   uuid: ^4.5.1                   # Unique identifier generation
+  file_picker: ^11.0.3           # Pick CSV/JSON files for Patient Register import
 
 # Development dependencies (not included in production build)
 dev_dependencies:

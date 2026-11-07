@@ -8,6 +8,23 @@ String normalizeCardNumber(String input) {
   return input.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
 }
 
+/// Checks a card number typed by staff or read from an import file.
+/// Returns an error message, or null when the card number is acceptable.
+/// A card number is required, must contain at least one digit, may only use
+/// letters, digits, spaces, "-" and "/", and is at most 20 characters.
+String? validateCardNumber(String? input) {
+  final v = (input ?? '').trim();
+  if (v.isEmpty || normalizeCardNumber(v).isEmpty) {
+    return 'Card number is required';
+  }
+  if (v.length > 20) return 'Card number is too long (max 20 characters)';
+  if (!RegExp(r'^[A-Za-z0-9 /-]+$').hasMatch(v)) {
+    return 'Use only letters, numbers, spaces, "-" or "/"';
+  }
+  if (!RegExp(r'[0-9]').hasMatch(v)) return 'Card number must include a number';
+  return null;
+}
+
 /// Lower-cases and splits a name into words, ignoring punctuation.
 List<String> nameWords(String name) {
   return name

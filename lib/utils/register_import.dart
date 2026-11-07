@@ -3,16 +3,17 @@ import '../models/register_patient_models.dart';
 import 'patient_register_utils.dart';
 
 /// Column order used for Patient Register CSV files (import and export).
+/// Card number comes first. On import, columns are matched by header name,
+/// so order does not matter and unknown or extra columns (for example the
+/// old `serialNo` / `ageBand`) are ignored.
 const List<String> registerCsvColumns = [
-  'serialNo',
-  'visitDate',
   'cardNumber',
+  'visitDate',
   'name',
   'dateOfBirth',
   'sex',
   'age',
   'ageUnit',
-  'ageBand',
   'contactAddress',
   'stateOfOrigin',
   'phone',
@@ -111,15 +112,13 @@ String registerPatientsToCsv(List<RegisterPatient> patients) {
   final buffer = StringBuffer()..writeln(registerCsvColumns.join(','));
   for (final p in patients) {
     final values = <String>[
-      p.serialNo?.toString() ?? '',
-      p.visitDate != null ? _isoDate(p.visitDate!) : '',
       p.cardNumber,
+      p.visitDate != null ? _isoDate(p.visitDate!) : '',
       p.name,
       p.dateOfBirth,
       p.sex.code,
       p.age?.toString() ?? '',
       p.ageUnit.name,
-      p.ageBand?.label ?? '',
       p.contactAddress,
       p.stateOfOrigin,
       p.phone,
@@ -181,7 +180,12 @@ RegisterImportRow registerRowFromMap(
   final errors = <String>[];
   final card = get('cardNumber');
   final name = get('name');
-  if (normalizeCardNumber(card).isEmpty) errors.add('Missing card number');
+  final cardError = validateCardNumber(card);
+  if (cardError != null) {
+    errors.add(normalizeCardNumber(card).isEmpty
+        ? 'Missing card number'
+        : 'Card number "$card": $cardError');
+  }
   if (name.isEmpty) errors.add('Missing name');
 
   int? age;
@@ -197,8 +201,6 @@ RegisterImportRow registerRowFromMap(
     errors.add('Visit date "$visitText" not understood (use YYYY-MM-DD)');
   }
 
-  final serialText = get('serialNo');
-
   final patient = errors.isNotEmpty
       ? null
       : RegisterPatient(
@@ -209,7 +211,6 @@ RegisterImportRow registerRowFromMap(
           sex: RegisterSexExtension.fromString(get('sex')),
           age: age,
           ageUnit: AgeUnitExtension.fromString(get('ageUnit')),
-          ageBand: AgeBandExtension.fromLabel(get('ageBand')),
           contactAddress: get('contactAddress'),
           stateOfOrigin: get('stateOfOrigin'),
           phone: get('phone'),
@@ -222,7 +223,6 @@ RegisterImportRow registerRowFromMap(
           lga: get('lga'),
           ward: get('ward'),
           facility: get('facility'),
-          serialNo: int.tryParse(serialText),
           needsReview: _parseYesNo(get('needsReview')) ?? false,
           reviewNotes: get('reviewNotes'),
           createdAt: now ?? DateTime.now(),

@@ -58,21 +58,19 @@ void main() {
     });
   });
 
-  group('age band', () {
-    test('derived from age and unit', () {
-      expect(AgeBandExtension.fromAge(3, AgeUnit.days), AgeBand.days0to28);
-      expect(AgeBandExtension.fromAge(6, AgeUnit.months), AgeBand.days29toMonths11);
-      expect(AgeBandExtension.fromAge(2, AgeUnit.years), AgeBand.months12to59);
-      expect(AgeBandExtension.fromAge(7, AgeUnit.years), AgeBand.years5to9);
-      expect(AgeBandExtension.fromAge(19, AgeUnit.years), AgeBand.years10to19);
-      expect(AgeBandExtension.fromAge(20, AgeUnit.years), AgeBand.years20plus);
+  group('card number validation', () {
+    test('accepts register-style card numbers', () {
+      for (final c in ['B 50', 'b50', 'A 199', 'Z-1', 'OPD/12']) {
+        expect(validateCardNumber(c), isNull, reason: c);
+      }
     });
 
-    test('labels round-trip, including the printed ≥ sign', () {
-      for (final b in AgeBand.values) {
-        expect(AgeBandExtension.fromLabel(b.label), b);
-      }
-      expect(AgeBandExtension.fromLabel('≥20 years'), AgeBand.years20plus);
+    test('rejects blank, digit-less, odd characters and over-long values', () {
+      expect(validateCardNumber(null), isNotNull);
+      expect(validateCardNumber('   '), isNotNull);
+      expect(validateCardNumber('ABC'), isNotNull);
+      expect(validateCardNumber('B#50'), isNotNull);
+      expect(validateCardNumber('B ${'1' * 30}'), isNotNull);
     });
   });
 
@@ -85,10 +83,10 @@ void main() {
     });
 
     test('parses register rows into patients', () {
-      const csv = 'serialNo,visitDate,cardNumber,name,dateOfBirth,sex,age,ageUnit,ageBand,'
+      const csv = 'cardNumber,visitDate,name,dateOfBirth,sex,age,ageUnit,'
           'contactAddress,stateOfOrigin,phone,firstContact,nokName,nokRelationship,nokAddress,'
           'nokPhone,lga,ward,facility,needsReview,reviewNotes\n'
-          '1,2026-01-05,z 1,Sample Patient,01/01/90,F,36,years,>=20 years,Sample Street,'
+          'z 1,2026-01-05,Sample Patient,01/01/90,F,36,years,Sample Street,'
           'Sample State,00000000001,Yes,Sample Kin,Husband,Sample Street,00000000002,'
           'Sample LGA,Sample Ward,Sample Facility,true,"DOB unclear, check"\n';
       final rows = parseRegisterCsv(csv, now: DateTime(2026, 1, 1));
@@ -101,20 +99,17 @@ void main() {
       expect(p.sex, RegisterSex.female);
       expect(p.age, 36);
       expect(p.ageYears, 36);
-      expect(p.ageBand, AgeBand.years20plus);
       expect(p.firstContact, isTrue);
       expect(p.visitDate, DateTime(2026, 1, 5));
       expect(p.needsReview, isTrue);
       expect(p.reviewNotes, 'DOB unclear, check');
       expect(p.nokRelationship, 'Husband');
-      expect(p.serialNo, 1);
     });
 
     test('babies recorded in days count as age 0 for search', () {
       const csv = 'cardNumber,name,age,ageUnit,firstContact\nZ 3,Sample Baby,2,days,No\n';
       final p = parseRegisterCsv(csv).single.patient!;
       expect(p.ageYears, 0);
-      expect(p.ageBand, AgeBand.days0to28);
       expect(p.firstContact, isFalse);
       expect(p.sex, RegisterSex.unknown);
     });
@@ -126,6 +121,40 @@ void main() {
       expect(rows[0].errors, contains('Missing card number'));
       expect(rows[1].errors, contains('Missing name'));
       expect(rows[2].errors.single, contains('not a whole number'));
+    });
+
+    test('old files with serialNo / ageBand and unknown columns still import', () {
+      const csv = 'serialNo,visitDate,cardNumber,name,age,ageUnit,ageBand,somethingElse\n'
+          '1,2026-01-05,Z 11,Sample Old,36,years,>=20 years,ignored\n';
+      final rows = parseRegisterCsv(csv);
+      expect(rows.single.isValid, isTrue);
+      final p = rows.single.patient!;
+      expect(p.cardNumber, 'Z 11');
+      expect(p.age, 36);
+      expect(p.toJson().containsKey('serialNo'), isFalse);
+      expect(p.toJson().containsKey('ageBand'), isFalse);
+
+      const json = '[{"serialNo":3,"cardNumber":"Z 12","name":"Sample Old Json",'
+          '"ageBand":"5-9 years","age":7,"extra":"x"}]';
+      final jsonRows = parseRegisterImport(json);
+      expect(jsonRows.single.isValid, isTrue);
+      expect(jsonRows.single.patient!.age, 7);
+    });
+
+    test('rows with an invalid card number are rejected', () {
+      const csv = 'cardNumber,name\nABC,No Digits\nB#5,Bad Char\n   ,Blank\n';
+      final rows = parseRegisterCsv(csv);
+      expect(rows.every((r) => !r.isValid), isTrue);
+      expect(rows[0].errors.single, contains('must include a number'));
+      expect(rows[1].errors.single, contains('Use only'));
+      expect(rows[2].errors, contains('Missing card number'));
+    });
+
+    test('export puts card number first and drops serialNo / ageBand', () {
+      final header = registerCsvColumns;
+      expect(header.first, 'cardNumber');
+      expect(header, isNot(contains('serialNo')));
+      expect(header, isNot(contains('ageBand')));
     });
 
     test('header without required columns is rejected', () {
@@ -186,7 +215,8 @@ void main() {
     expect(json['nameLower'], 'sample person');
     expect(json['nameSearchKeys'], contains('pers'));
     expect(json['ageYears'], 0);
-    expect(json['ageBand'], '29 days-11 months');
+    expect(json.containsKey('ageBand'), isFalse);
+    expect(json.containsKey('serialNo'), isFalse);
   });
 
   test('sample import file in docs/ parses cleanly', () {

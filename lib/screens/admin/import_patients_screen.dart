@@ -154,11 +154,12 @@ class _ImportPatientsScreenState extends State<ImportPatientsScreen> {
         children: [
           const Text(
             'Upload a CSV or JSON file of register entries. The first CSV row must be the '
-            'column names: serialNo, visitDate, cardNumber, name, dateOfBirth, sex, age, '
-            'ageUnit, ageBand, contactAddress, stateOfOrigin, phone, firstContact, nokName, '
-            'nokRelationship, nokAddress, nokPhone, lga, ward, facility, needsReview, reviewNotes. '
-            'Only cardNumber and name are required. Patients whose card number is already in the '
-            'register are skipped.',
+            'column names: cardNumber, visitDate, name, dateOfBirth, sex, age, ageUnit, '
+            'contactAddress, stateOfOrigin, phone, firstContact, nokName, nokRelationship, '
+            'nokAddress, nokPhone, lga, ward, facility, needsReview, reviewNotes. '
+            'Card number is the key field: rows without a valid card number are rejected, '
+            'and patients whose card number is already in the register are skipped. Name is '
+            'also required. Any other columns in the file are ignored.',
             style: TextStyle(color: Color(0xFF78716C)),
           ),
           const SizedBox(height: 16),

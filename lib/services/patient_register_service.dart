@@ -38,9 +38,16 @@ class PatientRegisterService {
         .toList();
   }
 
+  /// Card number is required and must be valid; throws [StateError] if not.
+  static void _checkCardNumber(String cardNumber) {
+    final error = validateCardNumber(cardNumber);
+    if (error != null) throw StateError(error);
+  }
+
   /// Creates a register record. Throws [StateError] if the card number is
   /// already used by another patient.
   static Future<String> createPatient(RegisterPatient patient) async {
+    _checkCardNumber(patient.cardNumber);
     final existing = await findByCardNumber(patient.cardNumber);
     if (existing != null) {
       throw StateError(
@@ -59,6 +66,7 @@ class PatientRegisterService {
 
   /// Updates an existing record (search fields are rebuilt from the new values).
   static Future<void> updatePatient(RegisterPatient patient) async {
+    _checkCardNumber(patient.cardNumber);
     final existing = await findByCardNumber(patient.cardNumber);
     if (existing != null && existing.id != patient.id) {
       throw StateError(

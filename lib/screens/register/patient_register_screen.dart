@@ -21,6 +21,7 @@ class PatientRegisterScreen extends StatefulWidget {
 
 class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
   final _searchController = TextEditingController();
+  /// Card number is the main way to find a patient, so it is the default.
   RegisterSearchMode _mode = RegisterSearchMode.cardNumber;
   List<RegisterPatient> _results = [];
   bool _isLoading = false;
@@ -186,6 +187,10 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
             const SizedBox(height: 12),
             TextField(
               controller: _searchController,
+              autofocus: true,
+              textCapitalization: _mode == RegisterSearchMode.cardNumber
+                  ? TextCapitalization.characters
+                  : TextCapitalization.words,
               onChanged: _onQueryChanged,
               onSubmitted: (_) => _runSearch(),
               textInputAction: TextInputAction.search,
@@ -289,11 +294,16 @@ class RegisterPatientTile extends StatelessWidget {
       ),
       child: ListTile(
         onTap: onTap,
-        leading: CircleAvatar(
-          backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.1),
+        leading: Container(
+          constraints: const BoxConstraints(minWidth: 64),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF10B981).withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(8),
+          ),
           child: Text(
             patient.cardNumber,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF047857)),
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF047857)),
             textAlign: TextAlign.center,
           ),
         ),

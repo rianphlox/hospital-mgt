@@ -57,7 +57,7 @@ class _RegisterPatientDetailScreenState extends State<RegisterPatientDetailScree
     final dateFormat = DateFormat('dd/MM/yyyy');
     return Scaffold(
       appBar: AppBar(
-        title: Text(p.cardNumber),
+        title: Text('Card ${p.cardNumber}'),
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF1C1917),
         elevation: 0,
@@ -72,10 +72,39 @@ class _RegisterPatientDetailScreenState extends State<RegisterPatientDetailScree
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text(p.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFF10B981)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.badge_outlined, size: 20, color: Color(0xFF047857)),
+                    const SizedBox(width: 8),
+                    SelectableText(
+                      p.cardNumber,
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1,
+                        color: Color(0xFF047857),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(p.name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
           Text(
-            '${p.sex.displayName} • ${p.ageDisplay}${p.ageBand != null ? ' (${p.ageBand!.label})' : ''}',
+            '${p.sex.displayName} • ${p.ageDisplay}',
             style: const TextStyle(color: Color(0xFF78716C)),
           ),
           if (p.needsReview) ...[
@@ -116,7 +145,6 @@ class _RegisterPatientDetailScreenState extends State<RegisterPatientDetailScree
             _row('Date of birth', p.dateOfBirth),
             _row('Sex', p.sex.displayName),
             _row('Age', p.ageDisplay),
-            _row('Age band', p.ageBand?.label ?? ''),
             _row('Contact address', p.contactAddress),
             _row('State of origin', p.stateOfOrigin),
             _row('Telephone', p.phone),
@@ -130,7 +158,6 @@ class _RegisterPatientDetailScreenState extends State<RegisterPatientDetailScree
           ]),
           _section('Register entry', [
             _row('Visit date', p.visitDate != null ? dateFormat.format(p.visitDate!) : ''),
-            _row('Serial no', p.serialNo?.toString() ?? ''),
             _row('LGA', p.lga),
             _row('Ward', p.ward),
             _row('Facility', p.facility),

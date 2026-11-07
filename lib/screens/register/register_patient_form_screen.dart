@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../../models/register_patient_models.dart';
 import '../../models/user_models.dart';
 import '../../services/patient_register_service.dart';
+import '../../utils/patient_register_utils.dart';
 import '../../widgets/add_patient_dialog.dart' show TitleCaseTextInputFormatter;
 
 /// Add / edit form that mirrors the columns of the NHMIS Daily General
@@ -22,8 +23,6 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
   late final Map<String, TextEditingController> _c;
   RegisterSex _sex = RegisterSex.unknown;
   AgeUnit _ageUnit = AgeUnit.years;
-  AgeBand? _ageBand;
-  bool _ageBandTouched = false;
   bool? _firstContact;
   DateTime? _visitDate;
   bool _needsReview = false;
@@ -51,14 +50,11 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
       'lga': TextEditingController(text: v(p?.lga)),
       'ward': TextEditingController(text: v(p?.ward)),
       'facility': TextEditingController(text: v(p?.facility)),
-      'serialNo': TextEditingController(text: p?.serialNo?.toString() ?? ''),
       'reviewNotes': TextEditingController(text: v(p?.reviewNotes)),
     };
     if (p != null) {
       _sex = p.sex;
       _ageUnit = p.ageUnit;
-      _ageBand = p.ageBand;
-      _ageBandTouched = true;
       _firstContact = p.firstContact;
       _visitDate = p.visitDate;
       _needsReview = p.needsReview;
@@ -73,13 +69,6 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
       c.dispose();
     }
     super.dispose();
-  }
-
-  void _updateAutoBand() {
-    if (_ageBandTouched) return;
-    setState(() {
-      _ageBand = AgeBandExtension.fromAge(int.tryParse(_c['age']!.text.trim()), _ageUnit);
-    });
   }
 
   Future<void> _pickVisitDate() async {
@@ -104,7 +93,6 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
       sex: _sex,
       age: int.tryParse(t('age')),
       ageUnit: _ageUnit,
-      ageBand: _ageBand,
       contactAddress: t('contactAddress'),
       stateOfOrigin: t('stateOfOrigin'),
       phone: t('phone'),
@@ -117,7 +105,6 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
       lga: t('lga'),
       ward: t('ward'),
       facility: t('facility'),
-      serialNo: int.tryParse(t('serialNo')),
       needsReview: _needsReview,
       reviewNotes: t('reviewNotes'),
       createdAt: widget.existing?.createdAt ?? DateTime.now(),
@@ -165,10 +152,10 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            _cardNumberField(),
             _heading('Patient / client'),
             _field('name', '8. Name of patient / client',
                 required: true, formatters: [TitleCaseTextInputFormatter()]),
-            _field('cardNumber', '9. Card number', hint: 'e.g. B 50', required: true),
             _field('dateOfBirth', '10. Date of birth', hint: 'DD/MM/YY or DD/MM/YYYY'),
             _label('11 / 12. Sex'),
             SegmentedButton<RegisterSex>(
@@ -185,7 +172,7 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: _field('age', 'Age', keyboard: TextInputType.number, onChanged: (_) => _updateAutoBand(),
+                  child: _field('age', 'Age', keyboard: TextInputType.number,
                       validator: (v) {
                     if ((v ?? '').trim().isEmpty) return null;
                     return int.tryParse(v!.trim()) == null ? 'Whole number' : null;
@@ -203,30 +190,12 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
                         DropdownMenuItem(value: AgeUnit.months, child: Text('Months')),
                         DropdownMenuItem(value: AgeUnit.years, child: Text('Years')),
                       ],
-                      onChanged: (u) {
-                        setState(() => _ageUnit = u ?? AgeUnit.years);
-                        _updateAutoBand();
-                      },
+                      onChanged: (u) => setState(() => _ageUnit = u ?? AgeUnit.years),
                     ),
                   ),
                 ),
               ],
             ),
-            DropdownButtonFormField<AgeBand?>(
-              key: ValueKey(_ageBand),
-              initialValue: _ageBand,
-              decoration: const InputDecoration(labelText: 'Age band (as ticked on the register)'),
-              items: [
-                const DropdownMenuItem<AgeBand?>(value: null, child: Text('Not recorded')),
-                for (final b in AgeBand.values)
-                  DropdownMenuItem<AgeBand?>(value: b, child: Text(b.label)),
-              ],
-              onChanged: (b) => setState(() {
-                _ageBand = b;
-                _ageBandTouched = true;
-              }),
-            ),
-            const SizedBox(height: 16),
             _field('contactAddress', '13. Contact address'),
             _field('stateOfOrigin', '14. State of origin'),
             _field('phone', '15. Telephone no.', keyboard: TextInputType.phone),
@@ -256,7 +225,6 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
               subtitle: Text(_visitDate != null ? DateFormat('dd/MM/yyyy').format(_visitDate!) : 'Not set'),
               trailing: TextButton(onPressed: _pickVisitDate, child: const Text('Change')),
             ),
-            _field('serialNo', 'S/N on register page', keyboard: TextInputType.number),
             _field('lga', 'LGA'),
             _field('ward', 'Ward'),
             _field('facility', 'Health facility'),
@@ -282,6 +250,36 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
             const SizedBox(height: 32),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Card number is the main identifier, so it sits first, on its own, in
+  /// larger bold text, and is required and validated.
+  Widget _cardNumberField() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF93C5FD)),
+      ),
+      child: TextFormField(
+        controller: _c['cardNumber'],
+        autofocus: !_isEdit,
+        textCapitalization: TextCapitalization.characters,
+        textInputAction: TextInputAction.next,
+        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 1),
+        decoration: const InputDecoration(
+          labelText: 'Card number *',
+          hintText: 'e.g. B 50',
+          helperText: 'Required. Each card number can only be used once.',
+          prefixIcon: Icon(Icons.badge_outlined),
+          filled: true,
+          fillColor: Colors.white,
+        ),
+        validator: validateCardNumber,
       ),
     );
   }

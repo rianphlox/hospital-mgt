@@ -1,4 +1,4 @@
-serialNo,visitDate,cardNumber,name,dateOfBirth,sex,age,ageUnit,ageBand,contactAddress,stateOfOrigin,phone,firstContact,nokName,nokRelationship,nokAddress,nokPhone,lga,ward,facility,needsReview,reviewNotes
-1,2026-01-05,Z 1,Sample Patient One,01/01/90,F,36,years,>=20 years,Sample Street 1,Sample State,00000000001,Yes,Sample Kin One,Husband,Sample Street 1,00000000002,Sample LGA,Sample Ward,Sample Facility,false,
-2,2026-01-05,Z 2,Sample Patient Two,15/06/2020,M,5,years,5-9 years,Sample Street 2,Sample State,00000000003,No,Sample Kin Two,Mother,Sample Street 2,00000000004,Sample LGA,Sample Ward,Sample Facility,true,"FAKE DATA - DOB and age do not match, example of a flagged row"
-3,2026-01-06,Z 3,Sample Baby Three,04/01/26,F,2,days,0-28 days,Sample Street 3,Sample State,,Yes,Sample Kin Three,Father,Sample Street 3,,Sample LGA,Sample Ward,Sample Facility,false,
+cardNumber,visitDate,name,dateOfBirth,sex,age,ageUnit,contactAddress,stateOfOrigin,phone,firstContact,nokName,nokRelationship,nokAddress,nokPhone,lga,ward,facility,needsReview,reviewNotes
+Z 1,2026-01-05,Sample Patient One,01/01/90,F,36,years,Sample Street 1,Sample State,00000000001,Yes,Sample Kin One,Husband,Sample Street 1,00000000002,Sample LGA,Sample Ward,Sample Facility,false,
+Z 2,2026-01-05,Sample Patient Two,15/06/2020,M,5,years,Sample Street 2,Sample State,00000000003,No,Sample Kin Two,Mother,Sample Street 2,00000000004,Sample LGA,Sample Ward,Sample Facility,true,"FAKE DATA - DOB and age do not match, example of a flagged row"
+Z 3,2026-01-06,Sample Baby Three,04/01/26,F,2,days,Sample Street 3,Sample State,,Yes,Sample Kin Three,Father,Sample Street 3,,Sample LGA,Sample Ward,Sample Facility,false,

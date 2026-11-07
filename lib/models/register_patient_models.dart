@@ -49,69 +49,6 @@ extension AgeUnitExtension on AgeUnit {
   }
 }
 
-/// The six NHMIS age bands printed on the register.
-enum AgeBand {
-  days0to28,
-  days29toMonths11,
-  months12to59,
-  years5to9,
-  years10to19,
-  years20plus,
-}
-
-extension AgeBandExtension on AgeBand {
-  String get label {
-    switch (this) {
-      case AgeBand.days0to28:
-        return '0-28 days';
-      case AgeBand.days29toMonths11:
-        return '29 days-11 months';
-      case AgeBand.months12to59:
-        return '12-59 months';
-      case AgeBand.years5to9:
-        return '5-9 years';
-      case AgeBand.years10to19:
-        return '10-19 years';
-      case AgeBand.years20plus:
-        return '>=20 years';
-    }
-  }
-
-  static AgeBand? fromLabel(String? value) {
-    final v = (value ?? '')
-        .toLowerCase()
-        .replaceAll('≥', '>=')
-        .replaceAll(' ', '')
-        .replaceAll('–', '-');
-    if (v.isEmpty) return null;
-    for (final band in AgeBand.values) {
-      if (band.label.replaceAll(' ', '') == v || band.name.toLowerCase() == v) {
-        return band;
-      }
-    }
-    if (v.contains('20')) return AgeBand.years20plus;
-    return null;
-  }
-
-  /// Works out the band from an age number and its unit.
-  static AgeBand? fromAge(int? age, AgeUnit unit) {
-    if (age == null) return null;
-    switch (unit) {
-      case AgeUnit.days:
-        return age <= 28 ? AgeBand.days0to28 : AgeBand.days29toMonths11;
-      case AgeUnit.months:
-        if (age < 12) return AgeBand.days29toMonths11;
-        if (age < 60) return AgeBand.months12to59;
-        return fromAge(age ~/ 12, AgeUnit.years);
-      case AgeUnit.years:
-        if (age < 5) return AgeBand.months12to59;
-        if (age < 10) return AgeBand.years5to9;
-        if (age < 20) return AgeBand.years10to19;
-        return AgeBand.years20plus;
-    }
-  }
-}
-
 /// One person in the hospital's Patient Register (the NHMIS "Daily General
 /// Attendance Register"). Stored in the `patient_register` collection.
 ///
@@ -123,6 +60,9 @@ class RegisterPatient {
   static const String collection = 'patient_register';
 
   final String id;
+
+  /// Hospital card number (e.g. "B 50"). The primary key for finding a
+  /// patient: required and unique across the register.
   final String cardNumber;
   final String name;
 
@@ -131,7 +71,6 @@ class RegisterPatient {
   final RegisterSex sex;
   final int? age;
   final AgeUnit ageUnit;
-  final AgeBand? ageBand;
   final String contactAddress;
   final String stateOfOrigin;
   final String phone;
@@ -146,7 +85,6 @@ class RegisterPatient {
   final String lga;
   final String ward;
   final String facility;
-  final int? serialNo;
   final bool needsReview;
   final String reviewNotes;
   final DateTime createdAt;
@@ -161,7 +99,6 @@ class RegisterPatient {
     this.sex = RegisterSex.unknown,
     this.age,
     this.ageUnit = AgeUnit.years,
-    AgeBand? ageBand,
     this.contactAddress = '',
     this.stateOfOrigin = '',
     this.phone = '',
@@ -174,13 +111,12 @@ class RegisterPatient {
     this.lga = '',
     this.ward = '',
     this.facility = '',
-    this.serialNo,
     this.needsReview = false,
     this.reviewNotes = '',
     required this.createdAt,
     this.updatedAt,
     this.createdBy,
-  }) : ageBand = ageBand ?? AgeBandExtension.fromAge(age, ageUnit);
+  });
 
   String get cardNumberNormalized => normalizeCardNumber(cardNumber);
   String get nameLower => name.trim().toLowerCase();
@@ -233,7 +169,6 @@ class RegisterPatient {
       sex: RegisterSexExtension.fromString(json['sex'] as String?),
       age: age,
       ageUnit: unit,
-      ageBand: AgeBandExtension.fromLabel(json['ageBand'] as String?),
       contactAddress: json['contactAddress'] as String? ?? '',
       stateOfOrigin: json['stateOfOrigin'] as String? ?? '',
       phone: json['phone'] as String? ?? '',
@@ -246,7 +181,6 @@ class RegisterPatient {
       lga: json['lga'] as String? ?? '',
       ward: json['ward'] as String? ?? '',
       facility: json['facility'] as String? ?? '',
-      serialNo: (json['serialNo'] as num?)?.toInt(),
       needsReview: json['needsReview'] as bool? ?? false,
       reviewNotes: json['reviewNotes'] as String? ?? '',
       createdAt: _toDate(json['createdAt']) ?? DateTime.now(),
@@ -269,7 +203,6 @@ class RegisterPatient {
       'age': age,
       'ageUnit': ageUnit.name,
       'ageYears': ageYears,
-      'ageBand': ageBand?.label,
       'contactAddress': contactAddress.trim(),
       'stateOfOrigin': stateOfOrigin.trim(),
       'phone': phone.trim(),
@@ -282,7 +215,6 @@ class RegisterPatient {
       'lga': lga.trim(),
       'ward': ward.trim(),
       'facility': facility.trim(),
-      'serialNo': serialNo,
       'needsReview': needsReview,
       'reviewNotes': reviewNotes.trim(),
       'createdAt': Timestamp.fromDate(createdAt),
@@ -306,7 +238,6 @@ class RegisterPatient {
       sex: sex,
       age: age,
       ageUnit: ageUnit,
-      ageBand: ageBand,
       contactAddress: contactAddress,
       stateOfOrigin: stateOfOrigin,
       phone: phone,
@@ -319,7 +250,6 @@ class RegisterPatient {
       lga: lga,
       ward: ward,
       facility: facility,
-      serialNo: serialNo,
       needsReview: needsReview,
       reviewNotes: reviewNotes,
       createdAt: createdAt,

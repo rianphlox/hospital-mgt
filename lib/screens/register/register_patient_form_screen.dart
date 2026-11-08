@@ -5,6 +5,7 @@ import '../../models/user_models.dart';
 import '../../services/patient_register_service.dart';
 import '../../utils/patient_register_utils.dart';
 import '../../utils/register_age.dart';
+import '../../utils/register_defaults.dart';
 import '../../widgets/add_patient_dialog.dart' show TitleCaseTextInputFormatter;
 
 /// Add / edit form that mirrors the columns of the NHMIS Daily General
@@ -56,9 +57,20 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
       'nokRelationship': TextEditingController(text: v(p?.nokRelationship)),
       'nokAddress': TextEditingController(text: v(p?.nokAddress)),
       'nokPhone': TextEditingController(text: v(p?.nokPhone)),
-      'lga': TextEditingController(text: v(p?.lga)),
-      'ward': TextEditingController(text: v(p?.ward)),
-      'facility': TextEditingController(text: v(p?.facility)),
+      // Same for every entry at this hospital: prefilled, and shown on old
+      // entries saved with them blank. Still editable.
+      'lga': TextEditingController(
+        text: RegisterDefaults.orDefault(p?.lga, RegisterDefaults.lga),
+      ),
+      'ward': TextEditingController(
+        text: RegisterDefaults.orDefault(p?.ward, RegisterDefaults.ward),
+      ),
+      'facility': TextEditingController(
+        text: RegisterDefaults.orDefault(
+          p?.facility,
+          RegisterDefaults.facility,
+        ),
+      ),
       'reviewNotes': TextEditingController(text: v(p?.reviewNotes)),
     };
     if (p != null) {

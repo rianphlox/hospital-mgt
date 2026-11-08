@@ -2,6 +2,7 @@ import 'dart:convert';
 import '../models/register_patient_models.dart';
 import 'patient_register_utils.dart';
 import 'register_age.dart';
+import 'register_defaults.dart';
 
 /// Column order used for Patient Register CSV files (import and export).
 /// Card number comes first. On import, columns are matched by header name,
@@ -258,9 +259,13 @@ RegisterImportRow registerRowFromMap(
           nokAddress: get('nokAddress'),
           nokPhone: get('nokPhone'),
           visitDate: visitDate,
-          lga: get('lga'),
-          ward: get('ward'),
-          facility: get('facility'),
+          // Blank header columns get this hospital's values.
+          lga: RegisterDefaults.orDefault(get('lga'), RegisterDefaults.lga),
+          ward: RegisterDefaults.orDefault(get('ward'), RegisterDefaults.ward),
+          facility: RegisterDefaults.orDefault(
+            get('facility'),
+            RegisterDefaults.facility,
+          ),
           needsReview: _parseYesNo(get('needsReview')) ?? false,
           reviewNotes: get('reviewNotes'),
           createdAt: now ?? DateTime.now(),

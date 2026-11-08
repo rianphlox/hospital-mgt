@@ -133,3 +133,22 @@ String? validateDateOfBirth(
       ? 'Date of birth is after the visit date'
       : 'Date of birth is in the future';
 }
+
+/// The age to store when an entry is submitted. An age typed by staff
+/// ([ageText], a whole number in [unit]) always wins. When the age box was
+/// left empty, the age is worked out from [dateOfBirth] on [reference] (the
+/// visit date, or today) so it is saved with the record. Null when neither
+/// gives an age.
+CalculatedAge? resolveAgeOnSubmit({
+  required String? ageText,
+  required AgeUnit unit,
+  required String? dateOfBirth,
+  required DateTime reference,
+}) {
+  final typed = (ageText ?? '').trim();
+  if (typed.isNotEmpty) {
+    final n = int.tryParse(typed);
+    return n == null ? null : CalculatedAge(n, unit);
+  }
+  return calculateAgeFromText(dateOfBirth, reference);
+}

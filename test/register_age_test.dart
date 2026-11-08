@@ -242,4 +242,70 @@ void main() {
       expect(none.ageDisplay, '-');
     });
   });
+
+  group('age resolved on submit (form save)', () {
+    final visit = DateTime(2026, 8, 3);
+
+    test('empty age box: calculated from DOB and stored', () {
+      final a = resolveAgeOnSubmit(
+        ageText: '',
+        unit: AgeUnit.years,
+        dateOfBirth: '1/6/2026',
+        reference: visit,
+      );
+      expect(a, const CalculatedAge(2, AgeUnit.months));
+      final p = RegisterPatient(
+        id: 'x',
+        cardNumber: 'H 4',
+        name: 'Sample',
+        dateOfBirth: '1/6/2026',
+        age: a?.value,
+        ageUnit: a?.unit ?? AgeUnit.years,
+        visitDate: visit,
+        createdAt: visit,
+      );
+      expect(p.toJson()['age'], 2);
+      expect(p.toJson()['ageUnit'], 'months');
+      expect(p.isAgeCalculated, isFalse);
+    });
+
+    test('typed age wins over the DOB, unit kept', () {
+      expect(
+        resolveAgeOnSubmit(
+          ageText: ' 40 ',
+          unit: AgeUnit.years,
+          dateOfBirth: '7/8/1996',
+          reference: visit,
+        ),
+        const CalculatedAge(40, AgeUnit.years),
+      );
+    });
+
+    test('blank age with unclear, impossible or no DOB stores nothing', () {
+      for (final dob in ['', '?/4/2023', '31/2/1991']) {
+        expect(
+          resolveAgeOnSubmit(
+            ageText: '',
+            unit: AgeUnit.years,
+            dateOfBirth: dob,
+            reference: visit,
+          ),
+          isNull,
+          reason: dob,
+        );
+      }
+    });
+
+    test('DOB after the visit date gives no age', () {
+      expect(
+        resolveAgeOnSubmit(
+          ageText: '',
+          unit: AgeUnit.years,
+          dateOfBirth: '5/8/2026',
+          reference: visit,
+        ),
+        isNull,
+      );
+    });
+  });
 }

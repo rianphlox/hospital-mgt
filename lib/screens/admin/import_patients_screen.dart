@@ -165,12 +165,14 @@ class _ImportPatientsScreenState extends State<ImportPatientsScreen> {
         children: [
           const Text(
             'Upload a CSV or JSON file of register entries. The first CSV row must be the '
-            'column names: cardNumber, registerYear, visitDate, name, dateOfBirth, sex, age, ageUnit, '
+            'column names: cardNumber, registerYear, visitDate, name, dateOfBirth, dobEstimated, sex, age, ageUnit, '
             'contactAddress, stateOfOrigin, phone, firstContact, nokName, nokRelationship, '
             'nokAddress, nokPhone, lga, ward, facility, needsReview, reviewNotes. '
             'Card number is the key field: rows without a valid card number are rejected, '
             'and cards already used in the same year are skipped. The registerYear (or year) column is optional: otherwise visitDate supplies the year, then the current year. Name is '
-            'also required. Any other columns in the file are ignored.',
+            'also required. Dates use DD/MM/YYYY; legacy YYYY-MM-DD is also accepted. '
+            'If DOB is blank but age is provided, an estimated DOB is saved using the visit date (or today). '
+            'Any other columns in the file are ignored.',
             style: TextStyle(color: Color(0xFF78716C)),
           ),
           const SizedBox(height: 16),

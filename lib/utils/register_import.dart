@@ -14,6 +14,7 @@ const List<String> registerCsvColumns = [
   'visitDate',
   'name',
   'dateOfBirth',
+  'dobEstimated',
   'sex',
   'age',
   'ageUnit',
@@ -117,9 +118,10 @@ String registerPatientsToCsv(List<RegisterPatient> patients) {
     final values = <String>[
       p.cardNumber,
       p.registerYear.toString(),
-      p.visitDate != null ? _isoDate(p.visitDate!) : '',
+      p.visitDate != null ? formatRegisterDate(p.visitDate!) : '',
       p.name,
-      p.dateOfBirth,
+      formatDateOfBirth(p.dateOfBirth, reference: p.visitDate),
+      p.dobEstimated ? 'true' : 'false',
       p.sex.code,
       p.age?.toString() ?? '',
       p.ageUnit.name,
@@ -142,25 +144,23 @@ String registerPatientsToCsv(List<RegisterPatient> patients) {
   return buffer.toString();
 }
 
-String _isoDate(DateTime d) =>
-    '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-
-/// Parses "2026-02-07", "07/02/2026" or "7/2/26" (day first).
+/// Accept day-first dates and legacy ISO dates without normalizing invalid days.
 DateTime? parseRegisterDate(String? value) {
   final v = (value ?? '').trim();
   if (v.isEmpty) return null;
-  final iso = DateTime.tryParse(v);
-  if (iso != null) return iso;
-  final m = RegExp(
+  final dmy = RegExp(
     r'^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2}|\d{4})$',
   ).firstMatch(v);
-  if (m == null) return null;
-  final day = int.parse(m.group(1)!);
-  final month = int.parse(m.group(2)!);
-  var year = int.parse(m.group(3)!);
-  if (m.group(3)!.length == 2) year += 2000;
-  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-  return DateTime(year, month, day);
+  if (dmy != null) {
+    var year = int.parse(dmy.group(3)!);
+    if (dmy.group(3)!.length == 2) year += 2000;
+    return parseDateOfBirth('${dmy.group(1)}/${dmy.group(2)}/$year');
+  }
+  // Existing ISO files may include a time. Validate the date part first;
+  // DateTime.tryParse alone silently rolls 31 February into March.
+  final iso = RegExp(r'^(\d{4}-\d{2}-\d{2})(?:$|T| )').firstMatch(v);
+  if (iso == null || parseDateOfBirth(iso.group(1)) == null) return null;
+  return DateTime.tryParse(v);
 }
 
 bool? _parseYesNo(String? value) {
@@ -200,13 +200,17 @@ RegisterImportRow registerRowFromMap(
   final ageText = get('age');
   if (ageText.isNotEmpty) {
     age = int.tryParse(ageText);
-    if (age == null) errors.add('Age "$ageText" is not a whole number');
+    if (age == null || age < 0) {
+      errors.add('Age "$ageText" must be a non-negative whole number');
+    }
   }
 
   final visitText = get('visitDate');
   final visitDate = parseRegisterDate(visitText);
   if (visitText.isNotEmpty && visitDate == null) {
-    errors.add('Visit date "$visitText" not understood (use YYYY-MM-DD)');
+    errors.add(
+      'Visit date "$visitText" not understood (use DD/MM/YYYY or YYYY-MM-DD)',
+    );
   }
 
   final yearText = get('registerYear').isNotEmpty
@@ -239,6 +243,13 @@ RegisterImportRow registerRowFromMap(
     }
   }
 
+  final dob = resolveDateOfBirthOnSubmit(
+    dateOfBirth: dobText,
+    age: age == null ? null : CalculatedAge(age, ageUnit),
+    reference: ageReference,
+    alreadyEstimated: _parseYesNo(get('dobEstimated')) ?? false,
+  );
+
   final patient = errors.isNotEmpty
       ? null
       : RegisterPatient(
@@ -246,7 +257,8 @@ RegisterImportRow registerRowFromMap(
           cardNumber: card,
           registerYear: year,
           name: name,
-          dateOfBirth: get('dateOfBirth'),
+          dateOfBirth: dob.value,
+          dobEstimated: dob.estimated,
           sex: RegisterSexExtension.fromString(get('sex')),
           age: age,
           ageUnit: ageUnit,

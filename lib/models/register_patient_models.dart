@@ -58,8 +58,10 @@ class RegisterPatient {
   final int registerYear;
   final String name;
 
-  /// Date of birth exactly as written (DD/MM/YY or DD/MM/YYYY).
+  /// DOB text: new saves use DD/MM/YYYY; unclear legacy text is preserved.
+  /// [dobEstimated] distinguishes an age-derived placeholder from a real DOB.
   final String dateOfBirth;
+  final bool dobEstimated;
   final RegisterSex sex;
   final int? age;
   final AgeUnit ageUnit;
@@ -89,6 +91,7 @@ class RegisterPatient {
     int? registerYear,
     required this.name,
     this.dateOfBirth = '',
+    this.dobEstimated = false,
     this.sex = RegisterSex.unknown,
     this.age,
     this.ageUnit = AgeUnit.years,
@@ -178,6 +181,7 @@ class RegisterPatient {
       ),
       name: json['name'] as String? ?? '',
       dateOfBirth: json['dateOfBirth'] as String? ?? '',
+      dobEstimated: json['dobEstimated'] as bool? ?? false,
       sex: RegisterSexExtension.fromString(json['sex'] as String?),
       age: age,
       ageUnit: unit,
@@ -212,6 +216,7 @@ class RegisterPatient {
       'nameLower': nameLower,
       'nameSearchKeys': nameSearchKeys,
       'dateOfBirth': dateOfBirth.trim(),
+      'dobEstimated': dobEstimated,
       'sex': sex.name,
       'age': age,
       'ageUnit': ageUnit.name,
@@ -250,6 +255,7 @@ class RegisterPatient {
       registerYear: registerYear ?? this.registerYear,
       name: name ?? this.name,
       dateOfBirth: dateOfBirth,
+      dobEstimated: dobEstimated,
       sex: sex,
       age: age,
       ageUnit: ageUnit,

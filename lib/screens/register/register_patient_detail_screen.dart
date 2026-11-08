@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../utils/register_age.dart';
 import '../../models/register_patient_models.dart';
 import '../../models/user_models.dart';
 import '../../services/patient_register_service.dart';
@@ -163,7 +164,10 @@ class _RegisterPatientDetailScreenState
             _row('Card number', p.cardNumber),
             _row('Register year', '${p.registerYear}'),
             _row('Name', p.name),
-            _row('Date of birth', p.dateOfBirth),
+            _row(
+              'Date of birth',
+              '${formatDateOfBirth(p.dateOfBirth, reference: p.visitDate)}${p.dobEstimated ? ' (estimated)' : ''}',
+            ),
             _row('Sex', p.sex.displayName),
             _row(
               'Age',

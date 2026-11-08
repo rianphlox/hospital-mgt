@@ -139,7 +139,7 @@ void main() {
       expect(rows.every((r) => !r.isValid), isTrue);
       expect(rows[0].errors, contains('Missing card number'));
       expect(rows[1].errors, contains('Missing name'));
-      expect(rows[2].errors.single, contains('not a whole number'));
+      expect(rows[2].errors.single, contains('non-negative whole number'));
     });
 
     test(

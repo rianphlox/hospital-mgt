@@ -148,7 +148,58 @@ CalculatedAge? resolveAgeOnSubmit({
   final typed = (ageText ?? '').trim();
   if (typed.isNotEmpty) {
     final n = int.tryParse(typed);
-    return n == null ? null : CalculatedAge(n, unit);
+    return n == null || n < 0 ? null : CalculatedAge(n, unit);
   }
   return calculateAgeFromText(dateOfBirth, reference);
+}
+
+/// Shared day-first display, preserving unclear paper-register text.
+String formatRegisterDate(DateTime date) =>
+    '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year.toString().padLeft(4, '0')}';
+
+String formatDateOfBirth(String value, {DateTime? reference}) {
+  final date = parseDateOfBirth(value, reference: reference);
+  return date == null ? value : formatRegisterDate(date);
+}
+
+/// Result resolved only on submit/import, never while a field is being typed.
+class ResolvedDateOfBirth {
+  final String value;
+  final bool estimated;
+  const ResolvedDateOfBirth(this.value, this.estimated);
+}
+
+/// Keep a supplied DOB. Only a genuinely blank DOB may be estimated from age.
+/// Month/year subtraction clamps to the last valid day (31 March - 1 month
+/// is 28/29 February), rather than overflowing into the following month.
+ResolvedDateOfBirth resolveDateOfBirthOnSubmit({
+  required String? dateOfBirth,
+  required CalculatedAge? age,
+  required DateTime reference,
+  bool alreadyEstimated = false,
+}) {
+  final text = (dateOfBirth ?? '').trim();
+  if (text.isNotEmpty) {
+    return ResolvedDateOfBirth(
+      formatDateOfBirth(text, reference: reference),
+      alreadyEstimated,
+    );
+  }
+  if (age == null || age.value < 0) {
+    return const ResolvedDateOfBirth('', false);
+  }
+  DateTime date;
+  if (age.unit == AgeUnit.days) {
+    date = _dateOnly(reference).subtract(Duration(days: age.value));
+  } else {
+    final months = age.unit == AgeUnit.years ? age.value * 12 : age.value;
+    final target = DateTime.utc(reference.year, reference.month - months, 1);
+    final lastDay = _daysInMonth(target.year, target.month);
+    date = DateTime.utc(
+      target.year,
+      target.month,
+      reference.day > lastDay ? lastDay : reference.day,
+    );
+  }
+  return ResolvedDateOfBirth(formatRegisterDate(date), true);
 }

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../models/register_patient_models.dart';
 import '../../models/user_models.dart';
 import '../../services/patient_register_service.dart';
 import '../../utils/patient_register_utils.dart';
 import '../../utils/register_age.dart';
 import '../../utils/register_defaults.dart';
+import '../../utils/register_import.dart' show parseRegisterDate;
 import '../../widgets/add_patient_dialog.dart' show TitleCaseTextInputFormatter;
 
 /// Add / edit form that mirrors the columns of the NHMIS Daily General
@@ -32,6 +32,7 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
   AgeUnit _ageUnit = AgeUnit.years;
   bool? _firstContact;
   DateTime? _visitDate;
+  bool _dobEstimated = false;
   bool _needsReview = false;
   bool _saving = false;
 
@@ -48,7 +49,10 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
         text: '${p?.registerYear ?? DateTime.now().year}',
       ),
       'name': TextEditingController(text: v(p?.name)),
-      'dateOfBirth': TextEditingController(text: v(p?.dateOfBirth)),
+      'dateOfBirth': TextEditingController(
+        text: formatDateOfBirth(v(p?.dateOfBirth), reference: p?.visitDate),
+      ),
+      'visitDate': TextEditingController(),
       'age': TextEditingController(text: p?.age?.toString() ?? ''),
       'contactAddress': TextEditingController(text: v(p?.contactAddress)),
       'stateOfOrigin': TextEditingController(text: v(p?.stateOfOrigin)),
@@ -74,6 +78,7 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
       'reviewNotes': TextEditingController(text: v(p?.reviewNotes)),
     };
     if (p != null) {
+      _dobEstimated = p.dobEstimated;
       _sex = p.sex;
       _ageUnit = p.ageUnit;
       _firstContact = p.firstContact;
@@ -82,6 +87,9 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
     } else {
       _visitDate = DateTime.now();
     }
+    _c['visitDate']!.text = _visitDate == null
+        ? ''
+        : formatRegisterDate(_visitDate!);
   }
 
   DateTime get _ageReference => _visitDate ?? DateTime.now();
@@ -97,13 +105,20 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
   Future<void> _pickVisitDate() async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: _visitDate ?? DateTime.now(),
+      initialDate:
+          (_visitDate != null &&
+              _visitDate!.year >= 2000 &&
+              !_visitDate!.isAfter(DateTime.now().add(const Duration(days: 1))))
+          ? _visitDate!
+          : DateTime.now(),
+      initialEntryMode: DatePickerEntryMode.calendarOnly,
       firstDate: DateTime(2000),
       lastDate: DateTime.now().add(const Duration(days: 1)),
     );
     if (picked != null) {
       setState(() {
         _visitDate = picked;
+        _c['visitDate']!.text = formatRegisterDate(picked);
         // A new entry defaults to the selected registration date's year.
         // Editing a visit date must not silently change an existing card's year.
         if (!_isEdit) {
@@ -125,12 +140,19 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
       dateOfBirth: t('dateOfBirth'),
       reference: _ageReference,
     );
+    final dob = resolveDateOfBirthOnSubmit(
+      dateOfBirth: t('dateOfBirth'),
+      age: age,
+      reference: _ageReference,
+      alreadyEstimated: _dobEstimated,
+    );
     final patient = RegisterPatient(
       id: widget.existing?.id ?? '',
       cardNumber: t('cardNumber'),
       registerYear: int.parse(t('registerYear')),
       name: t('name'),
-      dateOfBirth: t('dateOfBirth'),
+      dateOfBirth: dob.value,
+      dobEstimated: dob.estimated,
       sex: _sex,
       age: age?.value,
       ageUnit: age?.unit ?? _ageUnit,
@@ -219,13 +241,21 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
             _field(
               'dateOfBirth',
               '10. Date of birth',
-              hint: 'DD/MM/YY or DD/MM/YYYY',
+              hint: 'DD/MM/YYYY',
+              onChanged: (_) => setState(() => _dobEstimated = false),
               validator: (v) => validateDateOfBirth(
                 v,
                 _ageReference,
                 referenceIsVisitDate: _visitDate != null,
               ),
             ),
+            if (_dobEstimated)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 12),
+                child: Text(
+                  'Estimated DOB — replace with the real date when known.',
+                ),
+              ),
             _label('11 / 12. Sex'),
             SegmentedButton<RegisterSex>(
               segments: const [
@@ -250,8 +280,9 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
                     keyboard: TextInputType.number,
                     validator: (v) {
                       if ((v ?? '').trim().isEmpty) return null;
-                      return int.tryParse(v!.trim()) == null
-                          ? 'Whole number'
+                      final age = int.tryParse(v!.trim());
+                      return age == null || age < 0
+                          ? 'Non-negative whole number'
                           : null;
                     },
                   ),
@@ -314,18 +345,31 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
               keyboard: TextInputType.phone,
             ),
             _heading('Register entry'),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.event),
-              title: const Text('Visit date'),
-              subtitle: Text(
-                _visitDate != null
-                    ? DateFormat('dd/MM/yyyy').format(_visitDate!)
-                    : 'Not set',
-              ),
-              trailing: TextButton(
-                onPressed: _pickVisitDate,
-                child: const Text('Change'),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: TextFormField(
+                controller: _c['visitDate'],
+                keyboardType: TextInputType.datetime,
+                decoration: InputDecoration(
+                  labelText: 'Entry / visit date',
+                  hintText: 'DD/MM/YYYY',
+                  suffixIcon: IconButton(
+                    tooltip: 'Choose visit date',
+                    icon: const Icon(Icons.event),
+                    onPressed: _pickVisitDate,
+                  ),
+                ),
+                validator: (value) =>
+                    (value ?? '').trim().isNotEmpty &&
+                        parseRegisterDate(value) == null
+                    ? 'Enter a valid date (DD/MM/YYYY)'
+                    : null,
+                onChanged: (value) {
+                  _visitDate = parseRegisterDate(value);
+                  if (!_isEdit && _visitDate != null) {
+                    _c['registerYear']!.text = '${_visitDate!.year}';
+                  }
+                },
               ),
             ),
             _field('lga', 'LGA'),

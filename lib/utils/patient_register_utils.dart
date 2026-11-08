@@ -3,16 +3,23 @@
 library;
 
 /// Normalises a hospital card number so that "B50", "b 50", "B-50" and
-/// " B 50 " all become "B50".
+/// " B 50 " all become "B50". Leading zeros are not significant:
+/// "H1", "H01" and "h 0001" all become "H1". Zero-only cards become "H0".
 String normalizeCardNumber(String input) {
-  return input.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+  final compact = input.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+  // Strip textually, not via int.parse: long card numbers must not overflow.
+  return compact.replaceFirstMapped(
+    RegExp(r'^([A-Z])0+([0-9]+)$'),
+    (match) => '${match[1]}${match[2]}',
+  );
 }
 
 /// Checks a card number typed by staff or read from an import file.
 /// Returns an error message, or null when the card number is acceptable.
 /// A card number is required, must contain at least one digit, may only use
 /// one letter A-L followed by digits (optional spaces, "-" or "/" separators),
-/// and is at most 20 characters.
+/// and is at most 20 characters. Leading zeros (including zero-only cards)
+/// are accepted; normalization keeps one zero for a zero-only number.
 String? validateCardNumber(String? input) {
   final v = (input ?? '').trim();
   if (v.isEmpty || normalizeCardNumber(v).isEmpty) {

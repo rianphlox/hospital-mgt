@@ -122,33 +122,42 @@ class PatientRegisterService {
   }) async {
     final normalized = normalizeCardNumber(cardNumber);
     if (normalized.isEmpty) return null;
-    // Do not limit before deriving legacy years: a card may occur in many years.
-    final snapshot = await _collection
-        .where('cardNumberNormalized', isEqualTo: normalized)
-        .get();
-    final list = filterByYear(
-      _fromSnapshot(snapshot),
-      year ?? DateTime.now().year,
+    final candidates = await _cardCandidates(
+      normalized.substring(0, 1),
+      year: year ?? DateTime.now().year,
     );
-    return list.isEmpty ? null : list.first;
+    final matches = candidates.where(
+      (p) => p.cardNumberNormalized == normalized,
+    );
+    return matches.isEmpty ? null : matches.first;
   }
 
-  /// Returns existing year/card keys, not globally unique card numbers.
+  /// Query by letter rather than the numeric prefix: legacy documents may
+  /// store H001 while newer ones store H1. Both are normalized again on read.
+  /// No limit is applied until after normalization and year filtering.
+  static Future<List<RegisterPatient>> _cardCandidates(
+    String letter, {
+    int? year,
+  }) => _queryForYear(
+    _collection.orderBy('cardNumberNormalized').startAt([letter]).endAt([
+      '$letter\uf8ff',
+    ]),
+    year,
+  );
+
+  /// Returns existing year/card keys, including old zero-padded stored keys.
   static Future<Set<String>> existingCardNumbers(
     Iterable<RegisterPatient> patients,
   ) async {
     final requested = patients.map((p) => p.cardKey).toSet();
-    final cards = patients.map((p) => p.cardNumberNormalized).toSet().toList();
+    final letters = patients
+        .map((p) => p.cardNumberNormalized)
+        .where((card) => card.isNotEmpty)
+        .map((card) => card.substring(0, 1))
+        .toSet();
     final found = <String>{};
-    for (var i = 0; i < cards.length; i += 30) {
-      final chunk = cards.sublist(
-        i,
-        i + 30 > cards.length ? cards.length : i + 30,
-      );
-      final snapshot = await _collection
-          .where('cardNumberNormalized', whereIn: chunk)
-          .get();
-      for (final patient in _fromSnapshot(snapshot)) {
+    for (final letter in letters) {
+      for (final patient in await _cardCandidates(letter)) {
         if (requested.contains(patient.cardKey)) found.add(patient.cardKey);
       }
     }
@@ -199,18 +208,15 @@ class PatientRegisterService {
     final normalized = normalizeCardNumber(query);
     if (normalized.isEmpty) return [];
     try {
-      final cardQuery = _collection
-          .orderBy('cardNumberNormalized')
-          .startAt([normalized])
-          .endAt(['$normalized\uf8ff']);
-      final results = await _queryForYear(cardQuery, year);
-      results.sort((a, b) {
-        final aExact = a.cardNumberNormalized == normalized ? 0 : 1;
-        final bExact = b.cardNumberNormalized == normalized ? 0 : 1;
-        if (aExact != bExact) return aExact - bExact;
-        return _compareCards(a.cardNumberNormalized, b.cardNumberNormalized);
-      });
-      return results.take(_maxResults).toList();
+      final candidates = await _cardCandidates(
+        normalized.substring(0, 1),
+        year: year,
+      );
+      return filterByCardNumber(
+        candidates,
+        query,
+        year: year,
+      ).take(_maxResults).toList();
     } catch (e) {
       FirebaseService.handleFirestoreError(
         e,
@@ -219,6 +225,28 @@ class PatientRegisterService {
       );
       rethrow;
     }
+  }
+
+  /// Shared client-side matching also handles legacy zero-padded fields.
+  /// Preserves the written card for display and ranks exact identities first.
+  static List<RegisterPatient> filterByCardNumber(
+    Iterable<RegisterPatient> patients,
+    String query, {
+    int? year,
+  }) {
+    final normalized = normalizeCardNumber(query);
+    if (normalized.isEmpty) return [];
+    final results = filterByYear(
+      patients,
+      year,
+    ).where((p) => p.cardNumberNormalized.startsWith(normalized)).toList();
+    results.sort((a, b) {
+      final aExact = a.cardNumberNormalized == normalized ? 0 : 1;
+      final bExact = b.cardNumberNormalized == normalized ? 0 : 1;
+      if (aExact != bExact) return aExact - bExact;
+      return _compareCards(a.cardNumberNormalized, b.cardNumberNormalized);
+    });
+    return results;
   }
 
   /// Name search: case-insensitive, matches the start of any part of the

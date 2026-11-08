@@ -13,6 +13,24 @@ void main() {
       }
     });
 
+    test('leading zeros do not change card identity', () {
+      for (final card in ['H1', 'H01', 'H001', 'H0001', 'h 001', 'H-01']) {
+        expect(normalizeCardNumber(card), 'H1', reason: card);
+        expect(validateCardNumber(card), isNull, reason: card);
+        expect(registerCardKey(2026, card), '2026:H1');
+      }
+      expect(normalizeCardNumber('B 00050'), 'B50');
+      expect(normalizeCardNumber('H000100'), 'H100');
+      expect(normalizeCardNumber('H0001234567890123456'), 'H1234567890123456');
+    });
+
+    test('zero-only cards are valid and share the H0 identity', () {
+      for (final card in ['H0', 'H00', 'h 000', 'H-0000']) {
+        expect(normalizeCardNumber(card), 'H0');
+        expect(validateCardNumber(card), isNull);
+      }
+    });
+
     test('letter prefixes are kept', () {
       expect(normalizeCardNumber('A 146'), 'A146');
       expect(normalizeCardNumber('a146'), isNot(normalizeCardNumber('B146')));
@@ -236,6 +254,92 @@ void main() {
     expect(RegisterPatient.fromJson(json, 'test').ageDisplay, '6 months');
     expect(json.containsKey('ageBand'), isFalse);
     expect(json.containsKey('serialNo'), isFalse);
+  });
+
+  group('zero-padded legacy cards', () {
+    RegisterPatient legacy(String card, int year, String storedKey) =>
+        RegisterPatient.fromJson({
+          'cardNumber': card,
+          'cardNumberNormalized': storedKey,
+          'registerYear': year,
+          'name': 'Sample Patient',
+          'createdAt': DateTime(year),
+        }, '$year:$card');
+
+    test('reads rebuild identity without changing the written card', () {
+      final p = legacy('h 001', 2026, 'H001');
+      expect(p.cardNumberNormalized, 'H1');
+      expect(p.cardKey, '2026:H1');
+      expect(p.cardNumber, 'h 001');
+      expect(p.toJson()['cardNumber'], 'h 001');
+      expect(p.toJson()['cardNumberNormalized'], 'H1');
+    });
+
+    test('search is bidirectional, year scoped and exact-first', () {
+      final patients = [
+        legacy('H010', 2026, 'H010'),
+        legacy('H19', 2026, 'H19'),
+        legacy('H001', 2026, 'H001'),
+        legacy('H2', 2026, 'H2'),
+        legacy('H0001', 2025, 'H0001'),
+      ];
+      for (final query in ['H1', 'H01', 'H001', 'h-0001']) {
+        final matches = PatientRegisterService.filterByCardNumber(
+          patients,
+          query,
+          year: 2026,
+        );
+        expect(matches.map((p) => p.cardNumber), ['H001', 'H010', 'H19']);
+      }
+      expect(
+        PatientRegisterService.filterByCardNumber([
+          legacy('H1', 2026, 'H1'),
+        ], 'H001').single.cardNumber,
+        'H1',
+      );
+      expect(
+        PatientRegisterService.filterByCardNumber(patients, 'H'),
+        hasLength(5),
+      );
+      expect(PatientRegisterService.filterByCardNumber(patients, ''), isEmpty);
+      expect(
+        PatientRegisterService.filterByCardNumber(patients, 'H9'),
+        isEmpty,
+      );
+    });
+
+    test(
+      'CSV/JSON accept zeros and deduplicate per year and existing keys',
+      () {
+        final rows = parseRegisterCsv(
+          'cardNumber,name,registerYear\n'
+          'H001,Sample One,2026\nH1,Sample Two,2026\n'
+          'H0001,Sample Three,2027\nH013,Sample Four,2026\n'
+          'H000,Sample Zero,2026\nH0,Sample Other Zero,2026\n',
+        );
+        expect(rows.every((r) => r.isValid), isTrue);
+        expect(markDuplicates(rows, {legacy('H13', 2026, 'H13').cardKey}), 3);
+        expect(rows.map((r) => r.isDuplicate), [
+          false,
+          true,
+          false,
+          true,
+          false,
+          true,
+        ]);
+        final json = parseRegisterJson(
+          '[{"cardNumber":"H-0001","name":"Sample","registerYear":2026}]',
+        ).single.patient!;
+        expect(json.cardNumber, 'H-0001');
+        expect(json.cardKey, '2026:H1');
+        expect(
+          parseRegisterCsv(
+            registerPatientsToCsv([json]),
+          ).single.patient!.cardNumber,
+          'H-0001',
+        );
+      },
+    );
   });
 
   group('annual cards', () {

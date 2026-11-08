@@ -62,8 +62,9 @@ class RegisterPatient {
   final String id;
 
   /// Hospital card number (e.g. "B 50"). The primary key for finding a
-  /// patient: required and unique across the register.
+  /// patient: required and unique within its register year.
   final String cardNumber;
+  final int registerYear;
   final String name;
 
   /// Date of birth exactly as written (DD/MM/YY or DD/MM/YYYY).
@@ -94,6 +95,7 @@ class RegisterPatient {
   RegisterPatient({
     required this.id,
     required this.cardNumber,
+    int? registerYear,
     required this.name,
     this.dateOfBirth = '',
     this.sex = RegisterSex.unknown,
@@ -116,7 +118,10 @@ class RegisterPatient {
     required this.createdAt,
     this.updatedAt,
     this.createdBy,
-  });
+  }) : registerYear = registerYear ?? visitDate?.year ?? createdAt.year;
+
+  /// Stable duplicate key: a card can be reused in a different year.
+  String get cardKey => registerCardKey(registerYear, cardNumber);
 
   String get cardNumberNormalized => normalizeCardNumber(cardNumber);
   String get nameLower => name.trim().toLowerCase();
@@ -164,6 +169,9 @@ class RegisterPatient {
     return RegisterPatient(
       id: id,
       cardNumber: json['cardNumber'] as String? ?? '',
+      registerYear: int.tryParse(
+        '${json['registerYear'] ?? json['year'] ?? ''}',
+      ),
       name: json['name'] as String? ?? '',
       dateOfBirth: json['dateOfBirth'] as String? ?? '',
       sex: RegisterSexExtension.fromString(json['sex'] as String?),
@@ -194,6 +202,7 @@ class RegisterPatient {
   Map<String, dynamic> toJson() {
     return {
       'cardNumber': cardNumber.trim(),
+      'registerYear': registerYear,
       'cardNumberNormalized': cardNumberNormalized,
       'name': name.trim(),
       'nameLower': nameLower,
@@ -226,6 +235,7 @@ class RegisterPatient {
   RegisterPatient copyWith({
     String? id,
     String? cardNumber,
+    int? registerYear,
     String? name,
     DateTime? updatedAt,
     String? createdBy,
@@ -233,6 +243,7 @@ class RegisterPatient {
     return RegisterPatient(
       id: id ?? this.id,
       cardNumber: cardNumber ?? this.cardNumber,
+      registerYear: registerYear ?? this.registerYear,
       name: name ?? this.name,
       dateOfBirth: dateOfBirth,
       sex: sex,

@@ -12,10 +12,15 @@ class RegisterPatientFormScreen extends StatefulWidget {
   final UserProfile profile;
   final RegisterPatient? existing;
 
-  const RegisterPatientFormScreen({super.key, required this.profile, this.existing});
+  const RegisterPatientFormScreen({
+    super.key,
+    required this.profile,
+    this.existing,
+  });
 
   @override
-  State<RegisterPatientFormScreen> createState() => _RegisterPatientFormScreenState();
+  State<RegisterPatientFormScreen> createState() =>
+      _RegisterPatientFormScreenState();
 }
 
 class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
@@ -37,6 +42,9 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
     String v(String? s) => s ?? '';
     _c = {
       'cardNumber': TextEditingController(text: v(p?.cardNumber)),
+      'registerYear': TextEditingController(
+        text: '${p?.registerYear ?? DateTime.now().year}',
+      ),
       'name': TextEditingController(text: v(p?.name)),
       'dateOfBirth': TextEditingController(text: v(p?.dateOfBirth)),
       'age': TextEditingController(text: p?.age?.toString() ?? ''),
@@ -78,7 +86,16 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
       firstDate: DateTime(2000),
       lastDate: DateTime.now().add(const Duration(days: 1)),
     );
-    if (picked != null) setState(() => _visitDate = picked);
+    if (picked != null) {
+      setState(() {
+        _visitDate = picked;
+        // A new entry defaults to the selected registration date's year.
+        // Editing a visit date must not silently change an existing card's year.
+        if (!_isEdit) {
+          _c['registerYear']!.text = '${picked.year}';
+        }
+      });
+    }
   }
 
   Future<void> _save() async {
@@ -88,6 +105,7 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
     final patient = RegisterPatient(
       id: widget.existing?.id ?? '',
       cardNumber: t('cardNumber'),
+      registerYear: int.parse(t('registerYear')),
       name: t('name'),
       dateOfBirth: t('dateOfBirth'),
       sex: _sex,
@@ -119,7 +137,11 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_isEdit ? '${patient.name} updated' : '${patient.name} added to the register'),
+          content: Text(
+            _isEdit
+                ? '${patient.name} updated'
+                : '${patient.name} added to the register',
+          ),
           backgroundColor: const Color(0xFF10B981),
         ),
       );
@@ -153,16 +175,38 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
           padding: const EdgeInsets.all(16),
           children: [
             _cardNumberField(),
+            _field(
+              'registerYear',
+              'Register / card year *',
+              keyboard: TextInputType.number,
+              validator: (v) {
+                final year = int.tryParse((v ?? '').trim());
+                return year == null || year < 1900 || year > 9999
+                    ? 'Enter a four-digit year (1900-9999)'
+                    : null;
+              },
+            ),
             _heading('Patient / client'),
-            _field('name', '8. Name of patient / client',
-                required: true, formatters: [TitleCaseTextInputFormatter()]),
-            _field('dateOfBirth', '10. Date of birth', hint: 'DD/MM/YY or DD/MM/YYYY'),
+            _field(
+              'name',
+              '8. Name of patient / client',
+              required: true,
+              formatters: [TitleCaseTextInputFormatter()],
+            ),
+            _field(
+              'dateOfBirth',
+              '10. Date of birth',
+              hint: 'DD/MM/YY or DD/MM/YYYY',
+            ),
             _label('11 / 12. Sex'),
             SegmentedButton<RegisterSex>(
               segments: const [
                 ButtonSegment(value: RegisterSex.male, label: Text('Male')),
                 ButtonSegment(value: RegisterSex.female, label: Text('Female')),
-                ButtonSegment(value: RegisterSex.unknown, label: Text('Not recorded')),
+                ButtonSegment(
+                  value: RegisterSex.unknown,
+                  label: Text('Not recorded'),
+                ),
               ],
               selected: {_sex},
               onSelectionChanged: (s) => setState(() => _sex = s.first),
@@ -172,11 +216,17 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: _field('age', 'Age', keyboard: TextInputType.number,
-                      validator: (v) {
-                    if ((v ?? '').trim().isEmpty) return null;
-                    return int.tryParse(v!.trim()) == null ? 'Whole number' : null;
-                  }),
+                  child: _field(
+                    'age',
+                    'Age',
+                    keyboard: TextInputType.number,
+                    validator: (v) {
+                      if ((v ?? '').trim().isEmpty) return null;
+                      return int.tryParse(v!.trim()) == null
+                          ? 'Whole number'
+                          : null;
+                    },
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -186,11 +236,21 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
                       initialValue: _ageUnit,
                       decoration: const InputDecoration(labelText: 'Unit'),
                       items: const [
-                        DropdownMenuItem(value: AgeUnit.days, child: Text('Days')),
-                        DropdownMenuItem(value: AgeUnit.months, child: Text('Months')),
-                        DropdownMenuItem(value: AgeUnit.years, child: Text('Years')),
+                        DropdownMenuItem(
+                          value: AgeUnit.days,
+                          child: Text('Days'),
+                        ),
+                        DropdownMenuItem(
+                          value: AgeUnit.months,
+                          child: Text('Months'),
+                        ),
+                        DropdownMenuItem(
+                          value: AgeUnit.years,
+                          child: Text('Years'),
+                        ),
                       ],
-                      onChanged: (u) => setState(() => _ageUnit = u ?? AgeUnit.years),
+                      onChanged: (u) =>
+                          setState(() => _ageUnit = u ?? AgeUnit.years),
                     ),
                   ),
                 ),
@@ -213,17 +273,32 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
               }),
             ),
             _heading('17. Next of kin'),
-            _field('nokName', '17a. Name', formatters: [TitleCaseTextInputFormatter()]),
+            _field(
+              'nokName',
+              '17a. Name',
+              formatters: [TitleCaseTextInputFormatter()],
+            ),
             _field('nokRelationship', '17b. Relationship with client'),
             _field('nokAddress', '17c. Contact address'),
-            _field('nokPhone', '17d. Telephone no.', keyboard: TextInputType.phone),
+            _field(
+              'nokPhone',
+              '17d. Telephone no.',
+              keyboard: TextInputType.phone,
+            ),
             _heading('Register entry'),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.event),
               title: const Text('Visit date'),
-              subtitle: Text(_visitDate != null ? DateFormat('dd/MM/yyyy').format(_visitDate!) : 'Not set'),
-              trailing: TextButton(onPressed: _pickVisitDate, child: const Text('Change')),
+              subtitle: Text(
+                _visitDate != null
+                    ? DateFormat('dd/MM/yyyy').format(_visitDate!)
+                    : 'Not set',
+              ),
+              trailing: TextButton(
+                onPressed: _pickVisitDate,
+                child: const Text('Change'),
+              ),
             ),
             _field('lga', 'LGA'),
             _field('ward', 'Ward'),
@@ -231,11 +306,14 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Needs review'),
-              subtitle: const Text('Flag details that must be checked against the paper register'),
+              subtitle: const Text(
+                'Flag details that must be checked against the paper register',
+              ),
               value: _needsReview,
               onChanged: (v) => setState(() => _needsReview = v),
             ),
-            if (_needsReview) _field('reviewNotes', 'What needs checking', maxLines: 3),
+            if (_needsReview)
+              _field('reviewNotes', 'What needs checking', maxLines: 3),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _saving ? null : _save,
@@ -243,7 +321,10 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
                   ? const SizedBox(
                       height: 20,
                       width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : Text(_isEdit ? 'Save Changes' : 'Add to Register'),
             ),
@@ -270,11 +351,15 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
         autofocus: !_isEdit,
         textCapitalization: TextCapitalization.characters,
         textInputAction: TextInputAction.next,
-        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 1),
+        style: const TextStyle(
+          fontSize: 22,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1,
+        ),
         decoration: const InputDecoration(
           labelText: 'Card number *',
           hintText: 'e.g. B 50',
-          helperText: 'Required. Each card number can only be used once.',
+          helperText: 'A-L then a number. Unique within the card year.',
           prefixIcon: Icon(Icons.badge_outlined),
           filled: true,
           fillColor: Colors.white,
@@ -326,7 +411,8 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
         inputFormatters: formatters,
         onChanged: onChanged,
         decoration: InputDecoration(labelText: label, hintText: hint),
-        validator: validator ??
+        validator:
+            validator ??
             (required
                 ? (v) => (v ?? '').trim().isEmpty ? 'Required' : null
                 : null),

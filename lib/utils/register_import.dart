@@ -8,6 +8,7 @@ import 'patient_register_utils.dart';
 /// old `serialNo` / `ageBand`) are ignored.
 const List<String> registerCsvColumns = [
   'cardNumber',
+  'registerYear',
   'visitDate',
   'name',
   'dateOfBirth',
@@ -113,6 +114,7 @@ String registerPatientsToCsv(List<RegisterPatient> patients) {
   for (final p in patients) {
     final values = <String>[
       p.cardNumber,
+      p.registerYear.toString(),
       p.visitDate != null ? _isoDate(p.visitDate!) : '',
       p.name,
       p.dateOfBirth,
@@ -147,7 +149,9 @@ DateTime? parseRegisterDate(String? value) {
   if (v.isEmpty) return null;
   final iso = DateTime.tryParse(v);
   if (iso != null) return iso;
-  final m = RegExp(r'^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2}|\d{4})$').firstMatch(v);
+  final m = RegExp(
+    r'^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2}|\d{4})$',
+  ).firstMatch(v);
   if (m == null) return null;
   final day = int.parse(m.group(1)!);
   final month = int.parse(m.group(2)!);
@@ -182,9 +186,11 @@ RegisterImportRow registerRowFromMap(
   final name = get('name');
   final cardError = validateCardNumber(card);
   if (cardError != null) {
-    errors.add(normalizeCardNumber(card).isEmpty
-        ? 'Missing card number'
-        : 'Card number "$card": $cardError');
+    errors.add(
+      normalizeCardNumber(card).isEmpty
+          ? 'Missing card number'
+          : 'Card number "$card": $cardError',
+    );
   }
   if (name.isEmpty) errors.add('Missing name');
 
@@ -201,11 +207,22 @@ RegisterImportRow registerRowFromMap(
     errors.add('Visit date "$visitText" not understood (use YYYY-MM-DD)');
   }
 
+  final yearText = get('registerYear').isNotEmpty
+      ? get('registerYear')
+      : get('year');
+  final year = yearText.isEmpty ? null : int.tryParse(yearText);
+  if (yearText.isNotEmpty && (year == null || year < 1900 || year > 9999)) {
+    errors.add(
+      'Register year "$yearText" must be a four-digit year (1900-9999)',
+    );
+  }
+
   final patient = errors.isNotEmpty
       ? null
       : RegisterPatient(
           id: '',
           cardNumber: card,
+          registerYear: year,
           name: name,
           dateOfBirth: get('dateOfBirth'),
           sex: RegisterSexExtension.fromString(get('sex')),
@@ -228,19 +245,28 @@ RegisterImportRow registerRowFromMap(
           createdAt: now ?? DateTime.now(),
           createdBy: createdBy,
         );
-  return RegisterImportRow(rowNumber: rowNumber, patient: patient, errors: errors);
+  return RegisterImportRow(
+    rowNumber: rowNumber,
+    patient: patient,
+    errors: errors,
+  );
 }
 
 /// Parses register_2026.csv-style text. Throws [FormatException] when the
 /// header is missing the required columns.
-List<RegisterImportRow> parseRegisterCsv(String text, {DateTime? now, String? createdBy}) {
+List<RegisterImportRow> parseRegisterCsv(
+  String text, {
+  DateTime? now,
+  String? createdBy,
+}) {
   final rows = parseCsv(text);
   if (rows.isEmpty) return [];
   final header = rows.first;
   final keys = header.map(_key).toSet();
   if (!keys.contains('cardnumber') || !keys.contains('name')) {
     throw const FormatException(
-        'CSV header must include at least "cardNumber" and "name" columns');
+      'CSV header must include at least "cardNumber" and "name" columns',
+    );
   }
   final result = <RegisterImportRow>[];
   for (var r = 1; r < rows.length; r++) {
@@ -256,7 +282,11 @@ List<RegisterImportRow> parseRegisterCsv(String text, {DateTime? now, String? cr
 
 /// Parses JSON in the register_2026.json format: either a list of patient
 /// objects or an object with a "patients" list.
-List<RegisterImportRow> parseRegisterJson(String text, {DateTime? now, String? createdBy}) {
+List<RegisterImportRow> parseRegisterJson(
+  String text, {
+  DateTime? now,
+  String? createdBy,
+}) {
   final decoded = jsonDecode(text);
   final List<dynamic> list;
   if (decoded is List) {
@@ -264,17 +294,22 @@ List<RegisterImportRow> parseRegisterJson(String text, {DateTime? now, String? c
   } else if (decoded is Map && decoded['patients'] is List) {
     list = decoded['patients'] as List;
   } else {
-    throw const FormatException('JSON must be a list or contain a "patients" list');
+    throw const FormatException(
+      'JSON must be a list or contain a "patients" list',
+    );
   }
   final result = <RegisterImportRow>[];
   for (var i = 0; i < list.length; i++) {
     final item = list[i];
     if (item is! Map) {
-      result.add(RegisterImportRow(rowNumber: i + 1, errors: ['Not an object']));
+      result.add(
+        RegisterImportRow(rowNumber: i + 1, errors: ['Not an object']),
+      );
       continue;
     }
     final map = <String, String>{
-      for (final e in item.entries) e.key.toString(): e.value == null ? '' : e.value.toString(),
+      for (final e in item.entries)
+        e.key.toString(): e.value == null ? '' : e.value.toString(),
     };
     result.add(registerRowFromMap(map, i + 1, now: now, createdBy: createdBy));
   }
@@ -282,7 +317,11 @@ List<RegisterImportRow> parseRegisterJson(String text, {DateTime? now, String? c
 }
 
 /// Picks CSV or JSON automatically from the content.
-List<RegisterImportRow> parseRegisterImport(String text, {DateTime? now, String? createdBy}) {
+List<RegisterImportRow> parseRegisterImport(
+  String text, {
+  DateTime? now,
+  String? createdBy,
+}) {
   final trimmed = text.trimLeft().replaceFirst('\uFEFF', '');
   if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
     return parseRegisterJson(trimmed, now: now, createdBy: createdBy);
@@ -290,15 +329,18 @@ List<RegisterImportRow> parseRegisterImport(String text, {DateTime? now, String?
   return parseRegisterCsv(text, now: now, createdBy: createdBy);
 }
 
-/// Marks rows whose card number is already in [existingNormalized] or
+/// Marks rows whose year/card key is already in [existingNormalized] or
 /// appears earlier in the same file. Returns the number of duplicates.
-int markDuplicates(List<RegisterImportRow> rows, Set<String> existingNormalized) {
+int markDuplicates(
+  List<RegisterImportRow> rows,
+  Set<String> existingNormalized,
+) {
   final seen = <String>{...existingNormalized};
   var count = 0;
   for (final row in rows) {
     final p = row.patient;
     if (p == null) continue;
-    final key = p.cardNumberNormalized;
+    final key = p.cardKey;
     row.isDuplicate = seen.contains(key);
     if (row.isDuplicate) count++;
     seen.add(key);

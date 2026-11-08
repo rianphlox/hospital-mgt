@@ -11,7 +11,8 @@ String normalizeCardNumber(String input) {
 /// Checks a card number typed by staff or read from an import file.
 /// Returns an error message, or null when the card number is acceptable.
 /// A card number is required, must contain at least one digit, may only use
-/// letters, digits, spaces, "-" and "/", and is at most 20 characters.
+/// one letter A-L followed by digits (optional spaces, "-" or "/" separators),
+/// and is at most 20 characters.
 String? validateCardNumber(String? input) {
   final v = (input ?? '').trim();
   if (v.isEmpty || normalizeCardNumber(v).isEmpty) {
@@ -22,6 +23,9 @@ String? validateCardNumber(String? input) {
     return 'Use only letters, numbers, spaces, "-" or "/"';
   }
   if (!RegExp(r'[0-9]').hasMatch(v)) return 'Card number must include a number';
+  if (!RegExp(r'^[A-La-l][ /-]*[0-9]+$').hasMatch(v)) {
+    return 'Use a letter A-L followed by a number, e.g. B 50';
+  }
   return null;
 }
 
@@ -56,3 +60,11 @@ bool nameMatchesQuery(String name, String query) {
   if (queryWords.isEmpty) return false;
   return queryWords.every((q) => words.any((w) => w.startsWith(q)));
 }
+
+/// Card identity includes the year, since cards restart every January.
+String registerCardKey(int year, String cardNumber) =>
+    '$year:${normalizeCardNumber(cardNumber)}';
+
+/// A null selected year means all years.
+bool matchesRegisterYear(int registerYear, int? selectedYear) =>
+    selectedYear == null || registerYear == selectedYear;

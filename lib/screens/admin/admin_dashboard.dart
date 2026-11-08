@@ -120,7 +120,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   crossAxisCount: 2,
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
-                  childAspectRatio: 1.5,
+                  // Leave room for register card text on phone-sized screens.
+                  childAspectRatio: MediaQuery.sizeOf(context).width < 600 ? 0.85 : 1.5,
                   children: [
                     _buildManagementCard(
                       'Treatment Pricing',

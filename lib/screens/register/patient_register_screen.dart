@@ -20,8 +20,13 @@ class PatientRegisterScreen extends StatefulWidget {
 
 class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
   final _searchController = TextEditingController();
+
   /// Card number is the main way to find a patient, so it is the default.
   RegisterSearchMode _mode = RegisterSearchMode.cardNumber;
+  int _currentYear = DateTime.now().year;
+  late int? _selectedYear = _currentYear;
+  late List<int> _years = [_currentYear];
+  bool _reloadYears = true;
   List<RegisterPatient> _results = [];
   bool _isLoading = false;
   String? _error;
@@ -49,6 +54,12 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
   }
 
   Future<void> _runSearch() async {
+    final currentYear = DateTime.now().year;
+    if (currentYear != _currentYear) {
+      if (_selectedYear == _currentYear) _selectedYear = currentYear;
+      _currentYear = currentYear;
+      _reloadYears = true;
+    }
     final text = _searchController.text.trim();
     final id = ++_searchId;
 
@@ -57,11 +68,21 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
       _error = null;
     });
     try {
+      final years = _reloadYears
+          ? await PatientRegisterService.availableYears()
+          : _years;
       final results = text.isEmpty
-          ? await PatientRegisterService.recentPatients()
-          : await PatientRegisterService.search(text, _mode);
+          ? await PatientRegisterService.recentPatients(year: _selectedYear)
+          : await PatientRegisterService.search(
+              text,
+              _mode,
+              year: _selectedYear,
+            );
       if (!mounted || id != _searchId) return;
       setState(() {
+        _years = {...years, if (_selectedYear != null) _selectedYear!}.toList()
+          ..sort((a, b) => b.compareTo(a));
+        _reloadYears = false;
         _results = results;
         _isLoading = false;
       });
@@ -99,7 +120,10 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
         ),
       ),
     );
-    if (mounted) _runSearch();
+    if (mounted) {
+      _reloadYears = true;
+      _runSearch();
+    }
   }
 
   Future<void> _addPatient() async {
@@ -108,7 +132,10 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
         builder: (_) => RegisterPatientFormScreen(profile: widget.profile),
       ),
     );
-    if (saved == true && mounted) _runSearch();
+    if (saved == true && mounted) {
+      _reloadYears = true;
+      _runSearch();
+    }
   }
 
   Future<void> _openImport() async {
@@ -117,7 +144,10 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
         builder: (_) => ImportPatientsScreen(adminProfile: widget.profile),
       ),
     );
-    if (mounted) _runSearch();
+    if (mounted) {
+      _reloadYears = true;
+      _runSearch();
+    }
   }
 
   @override
@@ -152,6 +182,31 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            DropdownButtonFormField<int>(
+              key: ValueKey('register-year-$_selectedYear'),
+              initialValue: _selectedYear ?? 0,
+              decoration: const InputDecoration(
+                labelText: 'Register year',
+                prefixIcon: Icon(Icons.calendar_today),
+              ),
+              items: [
+                ..._years.map(
+                  (year) => DropdownMenuItem(
+                    value: year,
+                    child: Text(
+                      year == _currentYear ? '$year (current year)' : '$year',
+                    ),
+                  ),
+                ),
+                const DropdownMenuItem(value: 0, child: Text('All years')),
+              ],
+              onChanged: (year) {
+                _debounce?.cancel();
+                setState(() => _selectedYear = year == 0 ? null : year);
+                _runSearch();
+              },
+            ),
+            const SizedBox(height: 12),
             SegmentedButton<RegisterSearchMode>(
               segments: const [
                 ButtonSegment(
@@ -218,7 +273,11 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
     }
     if (_error != null) {
       return Center(
-        child: Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
+        child: Text(
+          _error!,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.red),
+        ),
       );
     }
     if (_results.isEmpty) {
@@ -226,12 +285,25 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.person_off_outlined, size: 48, color: Color(0xFFA8A29E)),
+            const Icon(
+              Icons.person_off_outlined,
+              size: 48,
+              color: Color(0xFFA8A29E),
+            ),
             const SizedBox(height: 12),
             Text(
-              query.isEmpty ? 'No patients in the register yet' : 'No patient found for "$query"',
+              query.isEmpty
+                  ? 'No patients for ${_selectedYear ?? 'all years'} yet'
+                  : 'No patient found for "$query"',
               style: const TextStyle(color: Color(0xFF78716C)),
             ),
+            if (_selectedYear != null) ...[
+              const SizedBox(height: 8),
+              const Text(
+                'Try a previous year or All years.',
+                style: TextStyle(color: Color(0xFF78716C)),
+              ),
+            ],
             const SizedBox(height: 12),
             TextButton.icon(
               onPressed: _addPatient,
@@ -264,6 +336,7 @@ class RegisterPatientTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final details = [
+      '${patient.registerYear}',
       patient.sex.displayName,
       patient.ageDisplay,
       if (patient.contactAddress.isNotEmpty) patient.contactAddress,
@@ -287,7 +360,11 @@ class RegisterPatientTile extends StatelessWidget {
           ),
           child: Text(
             patient.cardNumber,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF047857)),
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF047857),
+            ),
             textAlign: TextAlign.center,
           ),
         ),
@@ -303,7 +380,8 @@ class RegisterPatientTile extends StatelessWidget {
             if (patient.needsReview) ...[
               const SizedBox(width: 6),
               const Tooltip(
-                message: 'Some details need checking against the paper register',
+                message:
+                    'Some details need checking against the paper register',
                 child: Icon(Icons.flag, size: 16, color: Color(0xFFD97706)),
               ),
             ],

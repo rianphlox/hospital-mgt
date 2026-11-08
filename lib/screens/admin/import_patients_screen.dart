@@ -80,7 +80,7 @@ class _ImportPatientsScreenState extends State<ImportPatientsScreen> {
     });
     try {
       final existing = await PatientRegisterService.existingCardNumbers(
-        rows.where((r) => r.patient != null).map((r) => r.patient!.cardNumberNormalized),
+        rows.where((r) => r.patient != null).map((r) => r.patient!),
       );
       markDuplicates(rows, existing);
     } catch (e) {
@@ -106,10 +106,18 @@ class _ImportPatientsScreenState extends State<ImportPatientsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Import patients'),
-        content: Text('Add ${patients.length} patient${patients.length == 1 ? '' : 's'} to the register?'),
+        content: Text(
+          'Add ${patients.length} patient${patients.length == 1 ? '' : 's'} to the register?',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
-          ElevatedButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Import')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Import'),
+          ),
         ],
       ),
     );
@@ -131,7 +139,10 @@ class _ImportPatientsScreenState extends State<ImportPatientsScreen> {
       if (!mounted) return;
       setState(() => _importing = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Import failed: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Import failed: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -154,11 +165,11 @@ class _ImportPatientsScreenState extends State<ImportPatientsScreen> {
         children: [
           const Text(
             'Upload a CSV or JSON file of register entries. The first CSV row must be the '
-            'column names: cardNumber, visitDate, name, dateOfBirth, sex, age, ageUnit, '
+            'column names: cardNumber, registerYear, visitDate, name, dateOfBirth, sex, age, ageUnit, '
             'contactAddress, stateOfOrigin, phone, firstContact, nokName, nokRelationship, '
             'nokAddress, nokPhone, lga, ward, facility, needsReview, reviewNotes. '
             'Card number is the key field: rows without a valid card number are rejected, '
-            'and patients whose card number is already in the register are skipped. Name is '
+            'and cards already used in the same year are skipped. The registerYear (or year) column is optional: otherwise visitDate supplies the year, then the current year. Name is '
             'also required. Any other columns in the file are ignored.',
             style: TextStyle(color: Color(0xFF78716C)),
           ),
@@ -189,7 +200,9 @@ class _ImportPatientsScreenState extends State<ImportPatientsScreen> {
           Align(
             alignment: Alignment.centerRight,
             child: OutlinedButton.icon(
-              onPressed: _importing ? null : () => _parse(_pasteController.text, 'pasted text'),
+              onPressed: _importing
+                  ? null
+                  : () => _parse(_pasteController.text, 'pasted text'),
               icon: const Icon(Icons.preview),
               label: const Text('Preview'),
             ),
@@ -229,15 +242,22 @@ class _ImportPatientsScreenState extends State<ImportPatientsScreen> {
             ..._rows.map(_previewRow),
             const SizedBox(height: 16),
             ElevatedButton.icon(
-              onPressed: (_checking || _importing || _validCount == 0) ? null : _import,
+              onPressed: (_checking || _importing || _validCount == 0)
+                  ? null
+                  : _import,
               icon: _importing
                   ? const SizedBox(
                       height: 18,
                       width: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Icon(Icons.cloud_upload),
-              label: Text('Import $_validCount patient${_validCount == 1 ? '' : 's'}'),
+              label: Text(
+                'Import $_validCount patient${_validCount == 1 ? '' : 's'}',
+              ),
             ),
             const SizedBox(height: 32),
           ],
@@ -255,10 +275,12 @@ class _ImportPatientsScreenState extends State<ImportPatientsScreen> {
       status = row.errors.join('; ');
     } else if (row.isDuplicate) {
       color = const Color(0xFF78716C);
-      status = 'Card number already registered – will be skipped';
+      status = 'Card number already registered in this year – will be skipped';
     } else {
       color = const Color(0xFF10B981);
-      status = p!.needsReview ? 'Will import (flagged for review)' : 'Will import';
+      status = p!.needsReview
+          ? 'Will import (flagged for review)'
+          : 'Will import';
     }
     return Card(
       elevation: 0,
@@ -269,9 +291,14 @@ class _ImportPatientsScreenState extends State<ImportPatientsScreen> {
       ),
       child: ListTile(
         dense: true,
-        leading: Text('#${row.rowNumber}', style: const TextStyle(color: Color(0xFF78716C))),
+        leading: Text(
+          '#${row.rowNumber}',
+          style: const TextStyle(color: Color(0xFF78716C)),
+        ),
         title: Text(
-          p == null ? 'Row ${row.rowNumber}' : '${p.cardNumber} – ${p.name}',
+          p == null
+              ? 'Row ${row.rowNumber}'
+              : '${p.cardNumber} · ${p.registerYear} – ${p.name}',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         subtitle: Text(
@@ -295,7 +322,10 @@ class _ImportPatientsScreenState extends State<ImportPatientsScreen> {
         'Imported ${r.imported} patient${r.imported == 1 ? '' : 's'}. '
         'Skipped ${r.skippedDuplicates} duplicate card number${r.skippedDuplicates == 1 ? '' : 's'}'
         '${r.skippedInvalid > 0 ? ' and ${r.skippedInvalid} invalid row${r.skippedInvalid == 1 ? '' : 's'}' : ''}.',
-        style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF047857)),
+        style: const TextStyle(
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF047857),
+        ),
       ),
     );
   }

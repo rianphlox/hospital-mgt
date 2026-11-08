@@ -18,19 +18,25 @@ class RegisterPatientDetailScreen extends StatefulWidget {
   });
 
   @override
-  State<RegisterPatientDetailScreen> createState() => _RegisterPatientDetailScreenState();
+  State<RegisterPatientDetailScreen> createState() =>
+      _RegisterPatientDetailScreenState();
 }
 
-class _RegisterPatientDetailScreenState extends State<RegisterPatientDetailScreen> {
+class _RegisterPatientDetailScreenState
+    extends State<RegisterPatientDetailScreen> {
   late RegisterPatient _patient = widget.patient;
 
   bool get _canAdmit =>
-      widget.profile.role == UserRole.nurse || widget.profile.role == UserRole.admin;
+      widget.profile.role == UserRole.nurse ||
+      widget.profile.role == UserRole.admin;
 
   Future<void> _edit() async {
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => RegisterPatientFormScreen(profile: widget.profile, existing: _patient),
+        builder: (_) => RegisterPatientFormScreen(
+          profile: widget.profile,
+          existing: _patient,
+        ),
       ),
     );
     if (saved == true) {
@@ -57,12 +63,16 @@ class _RegisterPatientDetailScreenState extends State<RegisterPatientDetailScree
     final dateFormat = DateFormat('dd/MM/yyyy');
     return Scaffold(
       appBar: AppBar(
-        title: Text('Card ${p.cardNumber}'),
+        title: Text('Card ${p.cardNumber} · ${p.registerYear}'),
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF1C1917),
         elevation: 0,
         actions: [
-          IconButton(tooltip: 'Edit', icon: const Icon(Icons.edit), onPressed: _edit),
+          IconButton(
+            tooltip: 'Edit',
+            icon: const Icon(Icons.edit),
+            onPressed: _edit,
+          ),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
@@ -75,7 +85,10 @@ class _RegisterPatientDetailScreenState extends State<RegisterPatientDetailScree
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF10B981).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
@@ -84,7 +97,11 @@ class _RegisterPatientDetailScreenState extends State<RegisterPatientDetailScree
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.badge_outlined, size: 20, color: Color(0xFF047857)),
+                    const Icon(
+                      Icons.badge_outlined,
+                      size: 20,
+                      color: Color(0xFF047857),
+                    ),
                     const SizedBox(width: 8),
                     SelectableText(
                       p.cardNumber,
@@ -101,7 +118,10 @@ class _RegisterPatientDetailScreenState extends State<RegisterPatientDetailScree
             ],
           ),
           const SizedBox(height: 12),
-          Text(p.name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          Text(
+            p.name,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 4),
           Text(
             '${p.sex.displayName} • ${p.ageDisplay}',
@@ -141,6 +161,7 @@ class _RegisterPatientDetailScreenState extends State<RegisterPatientDetailScree
           ],
           _section('Patient', [
             _row('Card number', p.cardNumber),
+            _row('Register year', '${p.registerYear}'),
             _row('Name', p.name),
             _row('Date of birth', p.dateOfBirth),
             _row('Sex', p.sex.displayName),
@@ -157,7 +178,10 @@ class _RegisterPatientDetailScreenState extends State<RegisterPatientDetailScree
             _row('Telephone', p.nokPhone),
           ]),
           _section('Register entry', [
-            _row('Visit date', p.visitDate != null ? dateFormat.format(p.visitDate!) : ''),
+            _row(
+              'Visit date',
+              p.visitDate != null ? dateFormat.format(p.visitDate!) : '',
+            ),
             _row('LGA', p.lga),
             _row('Ward', p.ward),
             _row('Facility', p.facility),
@@ -204,7 +228,10 @@ class _RegisterPatientDetailScreenState extends State<RegisterPatientDetailScree
         children: [
           SizedBox(
             width: 150,
-            child: Text(label, style: const TextStyle(color: Color(0xFF78716C))),
+            child: Text(
+              label,
+              style: const TextStyle(color: Color(0xFF78716C)),
+            ),
           ),
           Expanded(
             child: SelectableText(

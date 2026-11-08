@@ -1,0 +1,21 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "patient_register",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "registerYear", "order": "ASCENDING" },
+        { "fieldPath": "cardNumberNormalized", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "patient_register",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "registerYear", "order": "ASCENDING" },
+        { "fieldPath": "nameSearchKeys", "arrayConfig": "CONTAINS" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

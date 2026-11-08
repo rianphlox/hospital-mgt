@@ -21,9 +21,9 @@ class RegisterImportResult {
 
 /// Firestore access for the `patient_register` collection.
 ///
-/// Searches only use single-field filters (equality, range, or
-/// array-contains), which Firestore indexes automatically, so no composite
-/// indexes are needed.
+/// Searches combine registerYear with card/name filters. See
+/// firestore.indexes.json. A read-only legacy fallback includes documents
+/// without registerYear until they are edited with a year.
 class PatientRegisterService {
   static FirebaseFirestore get _firestore => FirebaseService.firestore;
 
@@ -32,7 +32,9 @@ class PatientRegisterService {
 
   static const int _maxResults = 50;
 
-  static List<RegisterPatient> _fromSnapshot(QuerySnapshot<Map<String, dynamic>> snapshot) {
+  static List<RegisterPatient> _fromSnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) {
     return snapshot.docs
         .map((doc) => RegisterPatient.fromJson(doc.data(), doc.id))
         .toList();
@@ -48,10 +50,14 @@ class PatientRegisterService {
   /// already used by another patient.
   static Future<String> createPatient(RegisterPatient patient) async {
     _checkCardNumber(patient.cardNumber);
-    final existing = await findByCardNumber(patient.cardNumber);
+    final existing = await findByCardNumber(
+      patient.cardNumber,
+      year: patient.registerYear,
+    );
     if (existing != null) {
       throw StateError(
-          'Card number ${patient.cardNumber} already belongs to ${existing.name}');
+        'Card number ${patient.cardNumber} in ${patient.registerYear} already belongs to ${existing.name}',
+      );
     }
     try {
       final data = patient.toJson();
@@ -59,7 +65,11 @@ class PatientRegisterService {
       final ref = await _collection.add(data);
       return ref.id;
     } catch (e) {
-      FirebaseService.handleFirestoreError(e, OperationType.create, RegisterPatient.collection);
+      FirebaseService.handleFirestoreError(
+        e,
+        OperationType.create,
+        RegisterPatient.collection,
+      );
       rethrow;
     }
   }
@@ -67,10 +77,14 @@ class PatientRegisterService {
   /// Updates an existing record (search fields are rebuilt from the new values).
   static Future<void> updatePatient(RegisterPatient patient) async {
     _checkCardNumber(patient.cardNumber);
-    final existing = await findByCardNumber(patient.cardNumber);
+    final existing = await findByCardNumber(
+      patient.cardNumber,
+      year: patient.registerYear,
+    );
     if (existing != null && existing.id != patient.id) {
       throw StateError(
-          'Card number ${patient.cardNumber} already belongs to ${existing.name}');
+        'Card number ${patient.cardNumber} in ${patient.registerYear} already belongs to ${existing.name}',
+      );
     }
     try {
       final data = patient.toJson();
@@ -80,7 +94,10 @@ class PatientRegisterService {
       await _collection.doc(patient.id).update(data);
     } catch (e) {
       FirebaseService.handleFirestoreError(
-          e, OperationType.update, '${RegisterPatient.collection}/${patient.id}');
+        e,
+        OperationType.update,
+        '${RegisterPatient.collection}/${patient.id}',
+      );
     }
   }
 
@@ -90,108 +107,169 @@ class PatientRegisterService {
       if (!doc.exists) return null;
       return RegisterPatient.fromJson(doc.data()!, doc.id);
     } catch (e) {
-      FirebaseService.handleFirestoreError(e, OperationType.get, '${RegisterPatient.collection}/$id');
+      FirebaseService.handleFirestoreError(
+        e,
+        OperationType.get,
+        '${RegisterPatient.collection}/$id',
+      );
       return null;
     }
   }
 
-  static Future<RegisterPatient?> findByCardNumber(String cardNumber) async {
+  static Future<RegisterPatient?> findByCardNumber(
+    String cardNumber, {
+    int? year,
+  }) async {
     final normalized = normalizeCardNumber(cardNumber);
     if (normalized.isEmpty) return null;
+    // Do not limit before deriving legacy years: a card may occur in many years.
     final snapshot = await _collection
         .where('cardNumberNormalized', isEqualTo: normalized)
-        .limit(1)
         .get();
-    final list = _fromSnapshot(snapshot);
+    final list = filterByYear(
+      _fromSnapshot(snapshot),
+      year ?? DateTime.now().year,
+    );
     return list.isEmpty ? null : list.first;
   }
 
-  /// Returns which of [normalizedCards] already exist in Firestore.
-  static Future<Set<String>> existingCardNumbers(Iterable<String> normalizedCards) async {
-    final cards = normalizedCards.where((c) => c.isNotEmpty).toSet().toList();
+  /// Returns existing year/card keys, not globally unique card numbers.
+  static Future<Set<String>> existingCardNumbers(
+    Iterable<RegisterPatient> patients,
+  ) async {
+    final requested = patients.map((p) => p.cardKey).toSet();
+    final cards = patients.map((p) => p.cardNumberNormalized).toSet().toList();
     final found = <String>{};
-    // Firestore allows at most 30 values in a whereIn filter.
     for (var i = 0; i < cards.length; i += 30) {
-      final chunk = cards.sublist(i, i + 30 > cards.length ? cards.length : i + 30);
-      final snapshot = await _collection.where('cardNumberNormalized', whereIn: chunk).get();
-      for (final doc in snapshot.docs) {
-        final value = doc.data()['cardNumberNormalized'];
-        if (value is String) found.add(value);
+      final chunk = cards.sublist(
+        i,
+        i + 30 > cards.length ? cards.length : i + 30,
+      );
+      final snapshot = await _collection
+          .where('cardNumberNormalized', whereIn: chunk)
+          .get();
+      for (final patient in _fromSnapshot(snapshot)) {
+        if (requested.contains(patient.cardKey)) found.add(patient.cardKey);
       }
     }
     return found;
   }
 
+  static List<RegisterPatient> filterByYear(
+    Iterable<RegisterPatient> patients,
+    int? year,
+  ) =>
+      patients.where((p) => matchesRegisterYear(p.registerYear, year)).toList();
+
+  /// Includes derived years of legacy documents. This full read is needed
+  /// because Firestore cannot query a field that does not exist.
+  static Future<List<int>> availableYears() async {
+    final snapshot = await _collection.get();
+    return {
+      ..._fromSnapshot(snapshot).map((p) => p.registerYear),
+      DateTime.now().year,
+    }.toList()..sort((a, b) => b.compareTo(a));
+  }
+
+  static Future<List<RegisterPatient>> _queryForYear(
+    Query<Map<String, dynamic>> query,
+    int? year,
+  ) async {
+    if (year == null) return _fromSnapshot(await query.get());
+    final scoped = await query.where('registerYear', isEqualTo: year).get();
+    // Missing fields are not matched by where(null). Use the same indexed
+    // card/name query without a year, then retain ONLY legacy documents.
+    // No limit before year/name filtering: old years must not crowd out matches.
+    final legacy = await query.get();
+    return [
+      ..._fromSnapshot(scoped),
+      ...legacy.docs
+          .where((doc) => doc.data()['registerYear'] == null)
+          .map((doc) => RegisterPatient.fromJson(doc.data(), doc.id))
+          .where((p) => matchesRegisterYear(p.registerYear, year)),
+    ];
+  }
+
   /// Card number search: exact match first, then card numbers that start
   /// with the typed text ("B5" finds B 50 ... B 59).
-  static Future<List<RegisterPatient>> searchByCardNumber(String query) async {
+  static Future<List<RegisterPatient>> searchByCardNumber(
+    String query, {
+    int? year,
+  }) async {
     final normalized = normalizeCardNumber(query);
     if (normalized.isEmpty) return [];
     try {
-      final snapshot = await _collection
+      final cardQuery = _collection
           .orderBy('cardNumberNormalized')
           .startAt([normalized])
-          .endAt(['$normalized\uf8ff'])
-          .limit(_maxResults)
-          .get();
-      final results = _fromSnapshot(snapshot);
+          .endAt(['$normalized\uf8ff']);
+      final results = await _queryForYear(cardQuery, year);
       results.sort((a, b) {
         final aExact = a.cardNumberNormalized == normalized ? 0 : 1;
         final bExact = b.cardNumberNormalized == normalized ? 0 : 1;
         if (aExact != bExact) return aExact - bExact;
         return _compareCards(a.cardNumberNormalized, b.cardNumberNormalized);
       });
-      return results;
+      return results.take(_maxResults).toList();
     } catch (e) {
-      FirebaseService.handleFirestoreError(e, OperationType.list, RegisterPatient.collection);
-      return [];
+      FirebaseService.handleFirestoreError(
+        e,
+        OperationType.list,
+        RegisterPatient.collection,
+      );
+      rethrow;
     }
   }
 
   /// Name search: case-insensitive, matches the start of any part of the
   /// name. Every typed word must match ("jane do" finds "Jane Doe").
-  static Future<List<RegisterPatient>> searchByName(String query) async {
+  static Future<List<RegisterPatient>> searchByName(
+    String query, {
+    int? year,
+  }) async {
     final words = nameWords(query);
     if (words.isEmpty) return [];
     // Query on the longest word (most selective), filter the rest locally.
     final key = words.reduce((a, b) => b.length > a.length ? b : a);
     try {
-      final snapshot = await _collection
-          .where('nameSearchKeys', arrayContains: key)
-          .limit(200)
-          .get();
-      final results = _fromSnapshot(snapshot)
-          .where((p) => nameMatchesQuery(p.name, query))
-          .toList()
-        ..sort((a, b) => a.nameLower.compareTo(b.nameLower));
+      final results =
+          (await _queryForYear(
+              _collection.where('nameSearchKeys', arrayContains: key),
+              year,
+            )).where((p) => nameMatchesQuery(p.name, query)).toList()
+            ..sort((a, b) => a.nameLower.compareTo(b.nameLower));
       return results.take(_maxResults).toList();
     } catch (e) {
-      FirebaseService.handleFirestoreError(e, OperationType.list, RegisterPatient.collection);
-      return [];
+      FirebaseService.handleFirestoreError(
+        e,
+        OperationType.list,
+        RegisterPatient.collection,
+      );
+      rethrow;
     }
   }
 
-  static Future<List<RegisterPatient>> search(String text, RegisterSearchMode mode) async {
+  static Future<List<RegisterPatient>> search(
+    String text,
+    RegisterSearchMode mode, {
+    int? year,
+  }) async {
     switch (mode) {
       case RegisterSearchMode.cardNumber:
-        return searchByCardNumber(text);
+        return searchByCardNumber(text, year: year);
       case RegisterSearchMode.name:
-        return searchByName(text);
+        return searchByName(text, year: year);
     }
   }
 
   /// Most recently added register records, for the screen's default list.
-  static Future<List<RegisterPatient>> recentPatients({int limit = 30}) async {
-    try {
-      final snapshot = await _collection
-          .orderBy('createdAt', descending: true)
-          .limit(limit)
-          .get();
-      return _fromSnapshot(snapshot);
-    } catch (e) {
-      FirebaseService.handleFirestoreError(e, OperationType.list, RegisterPatient.collection);
-      return [];
-    }
+  static Future<List<RegisterPatient>> recentPatients({
+    int limit = 30,
+    int? year,
+  }) async {
+    final results = await _queryForYear(_collection, year);
+    results.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return results.take(limit).toList();
   }
 
   static Future<int> countPatients() async {
@@ -210,14 +288,14 @@ class PatientRegisterService {
     List<RegisterPatient> patients, {
     String? createdBy,
   }) async {
-    final existing = await existingCardNumbers(patients.map((p) => p.cardNumberNormalized));
+    final existing = await existingCardNumbers(patients);
     final seen = <String>{...existing};
     final toWrite = <RegisterPatient>[];
     var duplicates = 0;
     var invalid = 0;
     for (final p in patients) {
-      final key = p.cardNumberNormalized;
-      if (key.isEmpty || p.name.trim().isEmpty) {
+      final key = p.cardKey;
+      if (validateCardNumber(p.cardNumber) != null || p.name.trim().isEmpty) {
         invalid++;
         continue;
       }
@@ -243,7 +321,11 @@ class PatientRegisterService {
         await batch.commit();
       }
     } catch (e) {
-      FirebaseService.handleFirestoreError(e, OperationType.write, RegisterPatient.collection);
+      FirebaseService.handleFirestoreError(
+        e,
+        OperationType.write,
+        RegisterPatient.collection,
+      );
     }
 
     return RegisterImportResult(

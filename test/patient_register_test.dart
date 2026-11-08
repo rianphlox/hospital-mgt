@@ -54,7 +54,7 @@ void main() {
 
   group('card number validation', () {
     test('accepts register-style card numbers', () {
-      for (final c in ['B 50', 'b50', 'A 199', 'Z-1', 'OPD/12']) {
+      for (final c in ['B 50', 'b50', 'A 199', 'L-1', 'A/12']) {
         expect(validateCardNumber(c), isNull, reason: c);
       }
     });
@@ -70,25 +70,28 @@ void main() {
 
   group('CSV parsing', () {
     test('handles quotes, commas, newlines and CRLF', () {
-      final rows = parseCsv('a,b,c\r\n1,"x, y","say ""hi"""\r\n2,"line1\nline2",\r\n');
+      final rows = parseCsv(
+        'a,b,c\r\n1,"x, y","say ""hi"""\r\n2,"line1\nline2",\r\n',
+      );
       expect(rows.length, 3);
       expect(rows[1], ['1', 'x, y', 'say "hi"']);
       expect(rows[2], ['2', 'line1\nline2', '']);
     });
 
     test('parses register rows into patients', () {
-      const csv = 'cardNumber,visitDate,name,dateOfBirth,sex,age,ageUnit,'
+      const csv =
+          'cardNumber,visitDate,name,dateOfBirth,sex,age,ageUnit,'
           'contactAddress,stateOfOrigin,phone,firstContact,nokName,nokRelationship,nokAddress,'
           'nokPhone,lga,ward,facility,needsReview,reviewNotes\n'
-          'z 1,2026-01-05,Sample Patient,01/01/90,F,36,years,Sample Street,'
+          'l 1,2026-01-05,Sample Patient,01/01/90,F,36,years,Sample Street,'
           'Sample State,00000000001,Yes,Sample Kin,Husband,Sample Street,00000000002,'
           'Sample LGA,Sample Ward,Sample Facility,true,"DOB unclear, check"\n';
       final rows = parseRegisterCsv(csv, now: DateTime(2026, 1, 1));
       expect(rows.length, 1);
       final p = rows.single.patient!;
       expect(rows.single.isValid, isTrue);
-      expect(p.cardNumber, 'z 1');
-      expect(p.cardNumberNormalized, 'Z1');
+      expect(p.cardNumber, 'l 1');
+      expect(p.cardNumberNormalized, 'L1');
       expect(p.name, 'Sample Patient');
       expect(p.sex, RegisterSex.female);
       expect(p.age, 36);
@@ -101,7 +104,8 @@ void main() {
     });
 
     test('import preserves babies age and unit for display', () {
-      const csv = 'cardNumber,name,age,ageUnit,firstContact\nZ 3,Sample Baby,2,days,No\n';
+      const csv =
+          'cardNumber,name,age,ageUnit,firstContact\nL 3,Sample Baby,2,days,No\n';
       final p = parseRegisterCsv(csv).single.patient!;
       expect(p.age, 2);
       expect(p.ageUnit, AgeUnit.days);
@@ -112,7 +116,7 @@ void main() {
     });
 
     test('rows missing card number or name are reported, not imported', () {
-      const csv = 'cardNumber,name,age\n,No Card,3\nZ 9,,4\nZ 10,Bad Age,abc\n';
+      const csv = 'cardNumber,name,age\n,No Card,3\nL 9,,4\nL 10,Bad Age,abc\n';
       final rows = parseRegisterCsv(csv);
       expect(rows.every((r) => !r.isValid), isTrue);
       expect(rows[0].errors, contains('Missing card number'));
@@ -120,23 +124,28 @@ void main() {
       expect(rows[2].errors.single, contains('not a whole number'));
     });
 
-    test('old files with serialNo / ageBand and unknown columns still import', () {
-      const csv = 'serialNo,visitDate,cardNumber,name,age,ageUnit,ageBand,somethingElse\n'
-          '1,2026-01-05,Z 11,Sample Old,36,years,>=20 years,ignored\n';
-      final rows = parseRegisterCsv(csv);
-      expect(rows.single.isValid, isTrue);
-      final p = rows.single.patient!;
-      expect(p.cardNumber, 'Z 11');
-      expect(p.age, 36);
-      expect(p.toJson().containsKey('serialNo'), isFalse);
-      expect(p.toJson().containsKey('ageBand'), isFalse);
+    test(
+      'old files with serialNo / ageBand and unknown columns still import',
+      () {
+        const csv =
+            'serialNo,visitDate,cardNumber,name,age,ageUnit,ageBand,somethingElse\n'
+            '1,2026-01-05,L 11,Sample Old,36,years,>=20 years,ignored\n';
+        final rows = parseRegisterCsv(csv);
+        expect(rows.single.isValid, isTrue);
+        final p = rows.single.patient!;
+        expect(p.cardNumber, 'L 11');
+        expect(p.age, 36);
+        expect(p.toJson().containsKey('serialNo'), isFalse);
+        expect(p.toJson().containsKey('ageBand'), isFalse);
 
-      const json = '[{"serialNo":3,"cardNumber":"Z 12","name":"Sample Old Json",'
-          '"ageBand":"5-9 years","age":7,"extra":"x"}]';
-      final jsonRows = parseRegisterImport(json);
-      expect(jsonRows.single.isValid, isTrue);
-      expect(jsonRows.single.patient!.age, 7);
-    });
+        const json =
+            '[{"serialNo":3,"cardNumber":"L 12","name":"Sample Old Json",'
+            '"ageBand":"5-9 years","age":7,"extra":"x"}]';
+        final jsonRows = parseRegisterImport(json);
+        expect(jsonRows.single.isValid, isTrue);
+        expect(jsonRows.single.patient!.age, 7);
+      },
+    );
 
     test('rows with an invalid card number are rejected', () {
       const csv = 'cardNumber,name\nABC,No Digits\nB#5,Bad Char\n   ,Blank\n';
@@ -159,21 +168,30 @@ void main() {
     });
 
     test('duplicates by card number are marked (existing and in-file)', () {
-      const csv = 'cardNumber,name\nZ 1,A\nz1,B\nZ 2,C\nZ 3,D\n';
+      const csv = 'cardNumber,name\nL 1,A\nl1,B\nL 2,C\nL 3,D\n';
       final rows = parseRegisterCsv(csv);
-      final count = markDuplicates(rows, {'Z3'});
+      final count = markDuplicates(rows, {
+        registerCardKey(DateTime.now().year, 'L3'),
+      });
       expect(count, 2);
-      expect(rows.map((r) => r.isDuplicate).toList(), [false, true, false, true]);
+      expect(rows.map((r) => r.isDuplicate).toList(), [
+        false,
+        true,
+        false,
+        true,
+      ]);
     });
 
     test('export then import round-trips', () {
       final original = parseRegisterCsv(
         'cardNumber,name,sex,age,ageUnit,phone,firstContact,reviewNotes,needsReview\n'
-        'Z 5,"Sample, Person",M,4,years,000,No,"has ""quotes""",true\n',
+        'L 5,"Sample, Person",M,4,years,000,No,"has ""quotes""",true\n',
       ).single.patient!;
-      final again = parseRegisterCsv(registerPatientsToCsv([original])).single.patient!;
+      final again = parseRegisterCsv(
+        registerPatientsToCsv([original]),
+      ).single.patient!;
       expect(again.name, 'Sample, Person');
-      expect(again.cardNumber, 'Z 5');
+      expect(again.cardNumber, 'L 5');
       expect(again.sex, RegisterSex.male);
       expect(again.age, 4);
       expect(again.firstContact, isFalse);
@@ -182,10 +200,11 @@ void main() {
     });
 
     test('JSON with a patients list is accepted', () {
-      const json = '{"patients":[{"cardNumber":"Z 7","name":"Sample Json","age":30,'
+      const json =
+          '{"patients":[{"cardNumber":"L 7","name":"Sample Json","age":30,'
           '"ageUnit":"years","needsReview":false,"firstContact":"Yes"}]}';
       final rows = parseRegisterImport(json);
-      expect(rows.single.patient!.cardNumberNormalized, 'Z7');
+      expect(rows.single.patient!.cardNumberNormalized, 'L7');
       expect(rows.single.patient!.age, 30);
       expect(rows.single.patient!.firstContact, isTrue);
     });
@@ -217,6 +236,130 @@ void main() {
     expect(RegisterPatient.fromJson(json, 'test').ageDisplay, '6 months');
     expect(json.containsKey('ageBand'), isFalse);
     expect(json.containsKey('serialNo'), isFalse);
+  });
+
+  group('annual cards', () {
+    test('constructor derives year from visit date then creation date', () {
+      final p = RegisterPatient(
+        id: '',
+        cardNumber: 'B 50',
+        name: 'Sample',
+        visitDate: DateTime(2026, 2, 7),
+        createdAt: DateTime(2027),
+      );
+      expect(p.registerYear, 2026);
+      expect(p.copyWith(registerYear: 2027).registerYear, 2027);
+      expect(
+        RegisterPatient(
+          id: '',
+          cardNumber: 'B 50',
+          name: 'Sample',
+          createdAt: DateTime(2025),
+        ).registerYear,
+        2025,
+      );
+    });
+
+    test('legacy Firestore data derives year without requiring migration', () {
+      final base = <String, dynamic>{
+        'cardNumber': 'B 50',
+        'name': 'Sample',
+        'visitDate': '2026-02-07',
+        'createdAt': DateTime(2027),
+      };
+      expect(RegisterPatient.fromJson(base, 'legacy').registerYear, 2026);
+      base.remove('visitDate');
+      expect(RegisterPatient.fromJson(base, 'legacy').registerYear, 2027);
+      base['registerYear'] = 2024;
+      final p = RegisterPatient.fromJson(base, 'legacy');
+      expect(p.registerYear, 2024);
+      expect(p.toJson()['registerYear'], 2024);
+      expect(p.copyWith(name: 'Sample Edit').registerYear, 2024);
+      expect(
+        RegisterPatient.fromJson({}, 'empty').registerYear,
+        DateTime.now().year,
+      );
+    });
+
+    test(
+      'imports explicit registerYear or year, then visit date, then now',
+      () {
+        final rows = parseRegisterCsv(
+          'cardNumber,name,registerYear,year,visitDate\n'
+          'A 1,Sample One,2024,2025,2026-02-07\n'
+          'A 2,Sample Two,,2025,2026-02-07\n'
+          'A 3,Sample Three,,,2026-02-07\n'
+          'A 4,Sample Four,,,\n',
+          now: DateTime(2027),
+        );
+        expect(rows.map((r) => r.patient!.registerYear), [
+          2024,
+          2025,
+          2026,
+          2027,
+        ]);
+        expect(
+          parseRegisterCsv(
+            'cardNumber,name,registerYear\nA 1,Sample,bad\n',
+          ).single.isValid,
+          isFalse,
+        );
+        final json = parseRegisterJson(
+          '[{"cardNumber":"A 1","name":"Sample","year":2026}]',
+        );
+        expect(json.single.patient!.registerYear, 2026);
+      },
+    );
+
+    test('duplicate keys include year and normalized card number', () {
+      final rows = parseRegisterCsv(
+        'cardNumber,name,registerYear\n'
+        'B 50,Sample One,2026\nb50,Sample Two,2027\n'
+        'B-50,Sample Three,2026\nA 1,Sample Four,2027\n',
+      );
+      expect(markDuplicates(rows, {registerCardKey(2027, 'A 1')}), 2);
+      expect(rows.map((r) => r.isDuplicate), [false, false, true, true]);
+      expect(rows[0].patient!.cardKey, isNot(rows[1].patient!.cardKey));
+    });
+
+    test('selected year filters card and name matches, null includes all', () {
+      final patients = parseRegisterCsv(
+        'cardNumber,name,registerYear\n'
+        'B 50,Sample Person,2026\nB 50,Sample Person,2027\n',
+      ).map((r) => r.patient!).toList();
+      expect(
+        PatientRegisterService.filterByYear(patients, 2026).single.registerYear,
+        2026,
+      );
+      expect(
+        PatientRegisterService.filterByYear(patients, 2027).single.registerYear,
+        2027,
+      );
+      expect(PatientRegisterService.filterByYear(patients, 2028), isEmpty);
+      expect(PatientRegisterService.filterByYear(patients, null), hasLength(2));
+    });
+
+    test('A through L only, followed by a number', () {
+      for (final c in ['A 199', 'B 50', 'l/12', 'a-1']) {
+        expect(validateCardNumber(c), isNull);
+      }
+      for (final c in ['M 1', 'Z 1', 'OPD/12', '50', 'AA 1', 'B 1 X']) {
+        expect(validateCardNumber(c), contains('A-L'));
+      }
+    });
+
+    test('CSV round trip retains explicit card year', () {
+      final p = parseRegisterCsv(
+        'cardNumber,name,registerYear,visitDate\n'
+        'A 1,Sample,2025,2026-02-07\n',
+      ).single.patient!;
+      expect(
+        parseRegisterCsv(
+          registerPatientsToCsv([p]),
+        ).single.patient!.registerYear,
+        2025,
+      );
+    });
   });
 
   test('sample import file in docs/ parses cleanly', () {

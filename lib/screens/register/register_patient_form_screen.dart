@@ -461,6 +461,7 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
           labelText: label,
           hintText: hint,
           helperText: helper,
+          helperMaxLines: 2,
           helperStyle: helper == null
               ? null
               : const TextStyle(color: Color(0xFF0F766E)),

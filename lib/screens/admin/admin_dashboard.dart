@@ -167,7 +167,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     ),
                     _buildManagementCard(
                       'Patient Register',
-                      'Find patients by card no, name or age',
+                      'Find patients by card no or name',
                       Icons.manage_search,
                       const Color(0xFF0EA5E9),
                       () => Navigator.of(context).push(

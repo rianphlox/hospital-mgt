@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:crownlog_flutter/models/register_patient_models.dart';
+import 'package:crownlog_flutter/services/patient_register_service.dart';
 import 'package:crownlog_flutter/utils/patient_register_utils.dart';
 import 'package:crownlog_flutter/utils/register_import.dart';
 
@@ -44,18 +45,11 @@ void main() {
     });
   });
 
-  group('AgeRange.parse', () {
-    test('single age and ranges', () {
-      expect(AgeRange.parse('45').toString(), '45');
-      expect(AgeRange.parse('40-50').toString(), '40-50');
-      expect(AgeRange.parse('50 - 40').toString(), '40-50');
-      expect(AgeRange.parse('40 to 50').toString(), '40-50');
-      expect(AgeRange.parse('60+')!.min, 60);
-      expect(AgeRange.parse('<5')!.max, 4);
-      expect(AgeRange.parse('<=5')!.max, 5);
-      expect(AgeRange.parse('abc'), isNull);
-      expect(AgeRange.parse(''), isNull);
-    });
+  test('register search offers only card number and name', () {
+    expect(RegisterSearchMode.values, [
+      RegisterSearchMode.cardNumber,
+      RegisterSearchMode.name,
+    ]);
   });
 
   group('card number validation', () {
@@ -106,9 +100,12 @@ void main() {
       expect(p.nokRelationship, 'Husband');
     });
 
-    test('babies recorded in days count as age 0 for search', () {
+    test('import preserves babies age and unit for display', () {
       const csv = 'cardNumber,name,age,ageUnit,firstContact\nZ 3,Sample Baby,2,days,No\n';
       final p = parseRegisterCsv(csv).single.patient!;
+      expect(p.age, 2);
+      expect(p.ageUnit, AgeUnit.days);
+      expect(p.ageDisplay, '2 days');
       expect(p.ageYears, 0);
       expect(p.firstContact, isFalse);
       expect(p.sex, RegisterSex.unknown);
@@ -201,7 +198,7 @@ void main() {
     expect(parseRegisterDate('13/13/2026'), isNull);
   });
 
-  test('toJson stores the search fields', () {
+  test('toJson stores card/name search fields and preserves age', () {
     final p = RegisterPatient(
       id: '',
       cardNumber: 'b 50',
@@ -214,7 +211,10 @@ void main() {
     expect(json['cardNumberNormalized'], 'B50');
     expect(json['nameLower'], 'sample person');
     expect(json['nameSearchKeys'], contains('pers'));
+    expect(json['age'], 6);
+    expect(json['ageUnit'], 'months');
     expect(json['ageYears'], 0);
+    expect(RegisterPatient.fromJson(json, 'test').ageDisplay, '6 months');
     expect(json.containsKey('ageBand'), isFalse);
     expect(json.containsKey('serialNo'), isFalse);
   });

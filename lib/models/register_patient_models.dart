@@ -122,7 +122,7 @@ class RegisterPatient {
   String get nameLower => name.trim().toLowerCase();
   List<String> get nameSearchKeys => buildNameSearchKeys(name);
 
-  /// Age in whole years, used for age searches. Babies recorded in days or
+  /// Age in whole years, retained in stored records. Babies recorded in days or
   /// months count as 0 (or months ~/ 12).
   int? get ageYears {
     if (age == null) return null;
@@ -189,8 +189,8 @@ class RegisterPatient {
     );
   }
 
-  /// Firestore document. Includes the derived search fields
-  /// (`cardNumberNormalized`, `nameLower`, `nameSearchKeys`, `ageYears`).
+  /// Firestore document. Includes derived card/name search fields and
+  /// whole-year age for compatibility with existing records.
   Map<String, dynamic> toJson() {
     return {
       'cardNumber': cardNumber.trim(),

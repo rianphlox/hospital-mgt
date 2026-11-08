@@ -4,7 +4,7 @@ import '../utils/patient_register_utils.dart';
 import 'firebase_service.dart';
 
 /// How the Patient Register search box should interpret its text.
-enum RegisterSearchMode { cardNumber, name, age }
+enum RegisterSearchMode { cardNumber, name }
 
 /// Result of a batch import.
 class RegisterImportResult {
@@ -171,41 +171,12 @@ class PatientRegisterService {
     }
   }
 
-  /// Age search in whole years: a single age ("45") or a range ("40-50",
-  /// "60+", "<5"). Babies recorded in days/months count as age 0.
-  static Future<List<RegisterPatient>> searchByAge(AgeRange range) async {
-    try {
-      Query<Map<String, dynamic>> query = _collection;
-      if (range.min == range.max) {
-        query = query.where('ageYears', isEqualTo: range.min);
-      } else {
-        query = query
-            .where('ageYears', isGreaterThanOrEqualTo: range.min)
-            .where('ageYears', isLessThanOrEqualTo: range.max)
-            .orderBy('ageYears');
-      }
-      final snapshot = await query.limit(200).get();
-      final results = _fromSnapshot(snapshot)
-        ..sort((a, b) {
-          final byAge = (a.ageYears ?? 0).compareTo(b.ageYears ?? 0);
-          return byAge != 0 ? byAge : a.nameLower.compareTo(b.nameLower);
-        });
-      return results;
-    } catch (e) {
-      FirebaseService.handleFirestoreError(e, OperationType.list, RegisterPatient.collection);
-      return [];
-    }
-  }
-
   static Future<List<RegisterPatient>> search(String text, RegisterSearchMode mode) async {
     switch (mode) {
       case RegisterSearchMode.cardNumber:
         return searchByCardNumber(text);
       case RegisterSearchMode.name:
         return searchByName(text);
-      case RegisterSearchMode.age:
-        final range = AgeRange.parse(text);
-        return range == null ? [] : searchByAge(range);
     }
   }
 

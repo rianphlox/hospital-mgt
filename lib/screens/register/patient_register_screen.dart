@@ -3,12 +3,11 @@ import 'package:flutter/material.dart';
 import '../../models/register_patient_models.dart';
 import '../../models/user_models.dart';
 import '../../services/patient_register_service.dart';
-import '../../utils/patient_register_utils.dart';
 import '../admin/import_patients_screen.dart';
 import 'register_patient_detail_screen.dart';
 import 'register_patient_form_screen.dart';
 
-/// Patient Register: look up returning patients by card number, name or age.
+/// Patient Register: look up returning patients by card number or name.
 /// Reachable from the Nurse and Admin dashboards.
 class PatientRegisterScreen extends StatefulWidget {
   final UserProfile profile;
@@ -53,14 +52,6 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
     final text = _searchController.text.trim();
     final id = ++_searchId;
 
-    if (_mode == RegisterSearchMode.age && text.isNotEmpty && AgeRange.parse(text) == null) {
-      setState(() {
-        _results = [];
-        _error = 'Enter an age like 45, a range like 40-50, or 60+';
-      });
-      return;
-    }
-
     setState(() {
       _isLoading = true;
       _error = null;
@@ -96,8 +87,6 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
         return 'Card no, e.g. B 50';
       case RegisterSearchMode.name:
         return 'Name, e.g. Jane or Doe';
-      case RegisterSearchMode.age:
-        return 'Age, e.g. 45 or 40-50';
     }
   }
 
@@ -174,11 +163,6 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
                   value: RegisterSearchMode.name,
                   label: Text('Name'),
                   icon: Icon(Icons.person_search),
-                ),
-                ButtonSegment(
-                  value: RegisterSearchMode.age,
-                  label: Text('Age'),
-                  icon: Icon(Icons.cake_outlined),
                 ),
               ],
               selected: {_mode},

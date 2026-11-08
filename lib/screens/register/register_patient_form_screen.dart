@@ -4,6 +4,7 @@ import '../../models/register_patient_models.dart';
 import '../../models/user_models.dart';
 import '../../services/patient_register_service.dart';
 import '../../utils/patient_register_utils.dart';
+import '../../utils/register_age.dart';
 import '../../widgets/add_patient_dialog.dart' show TitleCaseTextInputFormatter;
 
 /// Add / edit form that mirrors the columns of the NHMIS Daily General
@@ -32,6 +33,10 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
   DateTime? _visitDate;
   bool _needsReview = false;
   bool _saving = false;
+
+  /// True while the age box holds a value worked out from the date of birth
+  /// (not typed by staff), so a DOB / visit date change may update it.
+  bool _ageAuto = false;
 
   bool get _isEdit => widget.existing != null;
 
@@ -69,6 +74,30 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
     } else {
       _visitDate = DateTime.now();
     }
+    // Existing entries saved without an age get one from their DOB.
+    _updateAgeFromDob();
+  }
+
+  DateTime get _ageReference => _visitDate ?? DateTime.now();
+
+  /// Fills the age from the date of birth when the age box is empty or was
+  /// filled automatically. Never overwrites an age typed by staff.
+  void _updateAgeFromDob() {
+    final ageText = _c['age']!.text.trim();
+    if (ageText.isNotEmpty && !_ageAuto) return;
+    final calculated = calculateAgeFromText(
+      _c['dateOfBirth']!.text,
+      _ageReference,
+    );
+    if (calculated != null) {
+      _c['age']!.text = '${calculated.value}';
+      _ageUnit = calculated.unit;
+      _ageAuto = true;
+    } else if (_ageAuto) {
+      // DOB cleared, unclear or in the future: drop the old calculated age.
+      _c['age']!.clear();
+      _ageAuto = false;
+    }
   }
 
   @override
@@ -94,13 +123,18 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
         if (!_isEdit) {
           _c['registerYear']!.text = '${picked.year}';
         }
+        _updateAgeFromDob();
       });
     }
   }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() => _saving = true);
+    setState(() {
+      _saving = true;
+      // Age left empty but DOB present: calculate it before saving.
+      if (_c['age']!.text.trim().isEmpty) _updateAgeFromDob();
+    });
     String t(String key) => _c[key]!.text.trim();
     final patient = RegisterPatient(
       id: widget.existing?.id ?? '',
@@ -197,6 +231,12 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
               'dateOfBirth',
               '10. Date of birth',
               hint: 'DD/MM/YY or DD/MM/YYYY',
+              onChanged: (_) => setState(_updateAgeFromDob),
+              validator: (v) => validateDateOfBirth(
+                v,
+                _ageReference,
+                referenceIsVisitDate: _visitDate != null,
+              ),
             ),
             _label('11 / 12. Sex'),
             SegmentedButton<RegisterSex>(
@@ -220,6 +260,8 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
                     'age',
                     'Age',
                     keyboard: TextInputType.number,
+                    helper: _ageAuto ? 'Calculated from date of birth' : null,
+                    onChanged: (_) => setState(() => _ageAuto = false),
                     validator: (v) {
                       if ((v ?? '').trim().isEmpty) return null;
                       return int.tryParse(v!.trim()) == null
@@ -233,6 +275,8 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
                   child: Padding(
                     padding: const EdgeInsets.only(bottom: 16),
                     child: DropdownButtonFormField<AgeUnit>(
+                      // Rebuild when the unit is set from the date of birth.
+                      key: ValueKey(_ageUnit),
                       initialValue: _ageUnit,
                       decoration: const InputDecoration(labelText: 'Unit'),
                       items: const [
@@ -249,8 +293,10 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
                           child: Text('Years'),
                         ),
                       ],
-                      onChanged: (u) =>
-                          setState(() => _ageUnit = u ?? AgeUnit.years),
+                      onChanged: (u) => setState(() {
+                        _ageUnit = u ?? AgeUnit.years;
+                        _ageAuto = false;
+                      }),
                     ),
                   ),
                 ),
@@ -395,6 +441,7 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
     String key,
     String label, {
     String? hint,
+    String? helper,
     bool required = false,
     TextInputType? keyboard,
     int maxLines = 1,
@@ -410,7 +457,14 @@ class _RegisterPatientFormScreenState extends State<RegisterPatientFormScreen> {
         maxLines: maxLines,
         inputFormatters: formatters,
         onChanged: onChanged,
-        decoration: InputDecoration(labelText: label, hintText: hint),
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          helperText: helper,
+          helperStyle: helper == null
+              ? null
+              : const TextStyle(color: Color(0xFF0F766E)),
+        ),
         validator:
             validator ??
             (required

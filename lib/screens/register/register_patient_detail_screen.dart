@@ -165,7 +165,12 @@ class _RegisterPatientDetailScreenState
             _row('Name', p.name),
             _row('Date of birth', p.dateOfBirth),
             _row('Sex', p.sex.displayName),
-            _row('Age', p.ageDisplay),
+            _row(
+              'Age',
+              p.isAgeCalculated
+                  ? '${p.ageDisplay} (from date of birth)'
+                  : p.ageDisplay,
+            ),
             _row('Contact address', p.contactAddress),
             _row('State of origin', p.stateOfOrigin),
             _row('Telephone', p.phone),

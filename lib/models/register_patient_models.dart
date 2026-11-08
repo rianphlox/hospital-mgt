@@ -1,5 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/patient_register_utils.dart';
+import '../utils/register_age.dart';
+
+export '../utils/register_age.dart' show AgeUnit, AgeUnitExtension;
 
 /// Sex as recorded in the NHMIS attendance register (column 11 Male /
 /// column 12 Female).
@@ -34,18 +37,6 @@ extension RegisterSexExtension on RegisterSex {
     if (v == 'm' || v == 'male') return RegisterSex.male;
     if (v == 'f' || v == 'female') return RegisterSex.female;
     return RegisterSex.unknown;
-  }
-}
-
-/// Unit the age number was written in.
-enum AgeUnit { days, months, years }
-
-extension AgeUnitExtension on AgeUnit {
-  static AgeUnit fromString(String? value) {
-    final v = (value ?? '').trim().toLowerCase();
-    if (v.startsWith('d')) return AgeUnit.days;
-    if (v.startsWith('m')) return AgeUnit.months;
-    return AgeUnit.years;
   }
 }
 
@@ -141,15 +132,28 @@ class RegisterPatient {
     }
   }
 
+  /// Age as stored, or, when no age was recorded, worked out from the date
+  /// of birth on the visit date (today if there is none). Computed on read
+  /// for display only; nothing is written back.
+  CalculatedAge? get effectiveAge {
+    if (age != null) return CalculatedAge(age!, ageUnit);
+    return calculateAgeFromText(dateOfBirth, visitDate ?? DateTime.now());
+  }
+
+  /// True when [effectiveAge] came from the date of birth, not a stored age.
+  bool get isAgeCalculated => age == null && effectiveAge != null;
+
   String get ageDisplay {
-    if (age == null) return '-';
-    switch (ageUnit) {
+    final a = effectiveAge;
+    if (a == null) return '-';
+    final n = a.value;
+    switch (a.unit) {
       case AgeUnit.days:
-        return '$age day${age == 1 ? '' : 's'}';
+        return '$n day${n == 1 ? '' : 's'}';
       case AgeUnit.months:
-        return '$age month${age == 1 ? '' : 's'}';
+        return '$n month${n == 1 ? '' : 's'}';
       case AgeUnit.years:
-        return '$age yr${age == 1 ? '' : 's'}';
+        return '$n yr${n == 1 ? '' : 's'}';
     }
   }
 

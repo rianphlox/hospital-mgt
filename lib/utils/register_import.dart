@@ -1,6 +1,7 @@
 import 'dart:convert';
 import '../models/register_patient_models.dart';
 import 'patient_register_utils.dart';
+import 'register_age.dart';
 
 /// Column order used for Patient Register CSV files (import and export).
 /// Card number comes first. On import, columns are matched by header name,
@@ -217,6 +218,26 @@ RegisterImportRow registerRowFromMap(
     );
   }
 
+  // Blank age + readable date of birth: work the age out from the DOB on the
+  // visit date (today when there is none). A DOB after that date is an error.
+  var ageUnit = AgeUnitExtension.fromString(get('ageUnit'));
+  final dobText = get('dateOfBirth');
+  final ageReference = visitDate ?? now ?? DateTime.now();
+  final dobError = validateDateOfBirth(
+    dobText,
+    ageReference,
+    referenceIsVisitDate: visitDate != null,
+  );
+  if (dobError != null) {
+    errors.add('Date of birth "$dobText": $dobError');
+  } else if (ageText.isEmpty) {
+    final calculated = calculateAgeFromText(dobText, ageReference);
+    if (calculated != null) {
+      age = calculated.value;
+      ageUnit = calculated.unit;
+    }
+  }
+
   final patient = errors.isNotEmpty
       ? null
       : RegisterPatient(
@@ -227,7 +248,7 @@ RegisterImportRow registerRowFromMap(
           dateOfBirth: get('dateOfBirth'),
           sex: RegisterSexExtension.fromString(get('sex')),
           age: age,
-          ageUnit: AgeUnitExtension.fromString(get('ageUnit')),
+          ageUnit: ageUnit,
           contactAddress: get('contactAddress'),
           stateOfOrigin: get('stateOfOrigin'),
           phone: get('phone'),

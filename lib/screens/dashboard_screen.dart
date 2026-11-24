@@ -7,6 +7,7 @@ import 'nurse/nurse_dashboard.dart';
 import 'cashier/cashier_dashboard.dart';
 import 'admin/admin_dashboard.dart';
 import 'patient_history_screen.dart';
+import 'hmo/hmo_check_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -124,6 +125,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       onSelected: (value) {
                         if (value == 'logout') {
                           _showLogoutDialog(context, authProvider);
+                        } else if (value == 'hmo_check') {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const HmoCheckScreen(),
+                            ),
+                          );
                         } else if (value == 'patient_history') {
                           Navigator.of(context).push(
                             MaterialPageRoute(
@@ -138,6 +145,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         borderRadius: BorderRadius.circular(16),
                       ),
                       itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'hmo_check',
+                          child: Row(
+                            children: [
+                              Icon(Icons.verified_user_outlined,
+                                  color: Color(0xFF059669)),
+                              SizedBox(width: 8),
+                              Text('HMO Check'),
+                            ],
+                          ),
+                        ),
                         const PopupMenuItem(
                           value: 'patient_history',
                           child: Row(

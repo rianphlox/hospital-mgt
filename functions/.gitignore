@@ -1,0 +1,9 @@
+node_modules/
+lib/
+*.log
+.env
+.env.*
+.secret.local
+# Real case files must never be committed. Keep them outside the repo.
+*cases*.json
+!examples/fake_cases.example.json

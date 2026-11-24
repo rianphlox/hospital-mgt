@@ -97,6 +97,13 @@ class _HmoCheckScreenState extends State<HmoCheckScreen> {
                     _error = null;
                   }),
           ),
+          if (!HmoService.isConfigured(_hmo.id)) ...[
+            const SizedBox(height: 8),
+            _errorBox(
+              'The ${_hmo.id.toUpperCase()} login is not configured in this '
+              'build of the app, so ${_hmo.id.toUpperCase()} checks will not work.',
+            ),
+          ],
           const SizedBox(height: 12),
           TextField(
             controller: _query,

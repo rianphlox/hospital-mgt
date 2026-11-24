@@ -1,4 +1,4 @@
-/// One person returned by an HMO lookup (functions/src/hmo/types.ts HmoRecord).
+/// One person returned by an HMO lookup (see lib/services/hmo/).
 class HmoMember {
   final String hmo;
   final String memberId;
@@ -88,7 +88,8 @@ class HmoLookupResult {
   }
 }
 
-/// HMOs the app can check. Ids must match ADAPTERS in functions/src/hmo/registry.ts.
+/// HMOs the app can check. Ids must match HmoRegistry.clients in
+/// lib/services/hmo/hmo_registry.dart.
 class HmoOption {
   final String id;
   final String label;

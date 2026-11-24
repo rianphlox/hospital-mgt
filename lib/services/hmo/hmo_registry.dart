@@ -1,15 +1,19 @@
 import 'hmo_client.dart';
+import 'hygeia_client.dart';
 import 'phml_client.dart';
 import 'tht_client.dart';
 
 /// HMO credentials, compiled in at build time:
 ///   flutter build apk --dart-define-from-file=hmo_defines.json
-/// with keys THT_USER, THT_PASSWORD, PHML_EMAIL, PHML_PASSWORD.
+/// with keys THT_USER, THT_PASSWORD, PHML_EMAIL, PHML_PASSWORD,
+/// HYGEIA_USER, HYGEIA_PASSWORD.
 /// Keep that file outside the repo.
 const _thtUser = String.fromEnvironment('THT_USER');
 const _thtPassword = String.fromEnvironment('THT_PASSWORD');
 const _phmlEmail = String.fromEnvironment('PHML_EMAIL');
 const _phmlPassword = String.fromEnvironment('PHML_PASSWORD');
+const _hygeiaUser = String.fromEnvironment('HYGEIA_USER');
+const _hygeiaPassword = String.fromEnvironment('HYGEIA_PASSWORD');
 
 /// HMO clients plus the in-memory session cache.
 ///
@@ -23,7 +27,8 @@ class HmoRegistry {
   static const sessionTtl = Duration(minutes: 20);
 
   static final Map<String, HmoClient> clients = {
-    for (final c in <HmoClient>[ThtClient(), PhmlClient()]) c.id: c,
+    for (final c in <HmoClient>[ThtClient(), PhmlClient(), HygeiaClient()])
+      c.id: c,
   };
 
   static HmoCredentials credentialsFor(String hmo) {
@@ -32,6 +37,8 @@ class HmoRegistry {
         return const HmoCredentials(_thtUser, _thtPassword);
       case 'phml':
         return const HmoCredentials(_phmlEmail, _phmlPassword);
+      case 'hygeia':
+        return const HmoCredentials(_hygeiaUser, _hygeiaPassword);
       default:
         return const HmoCredentials('', '');
     }

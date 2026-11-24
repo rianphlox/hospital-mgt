@@ -103,5 +103,6 @@ class HmoOption {
       'Enrollee ID (AF1234567890_1, 1110000000-01) or name',
     ),
     HmoOption('phml', 'PHML', 'NHIS number or name'),
+    HmoOption('hygeia', 'Hygeia', 'Enrollee no. (1234567/0) or name'),
   ];
 }

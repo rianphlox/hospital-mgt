@@ -73,6 +73,7 @@ class CookieSession {
     String url, {
     Map<String, String>? query,
     Map<String, String>? form,
+    Object? json,
     Map<String, String>? headers,
   }) async {
     var target = Uri.parse(url);
@@ -81,7 +82,11 @@ class CookieSession {
         queryParameters: {...target.queryParameters, ...query},
       );
     }
-    String? body = form == null ? null : Uri(queryParameters: form).query;
+    String? body = json != null
+        ? jsonEncode(json)
+        : form == null
+        ? null
+        : Uri(queryParameters: form).query;
     final redirects = <int>[];
 
     while (true) {
@@ -96,11 +101,13 @@ class CookieSession {
           req.headers.set(HttpHeaders.cookieHeader, cookie);
         }
         if (body != null) {
-          req.headers.contentType = ContentType(
-            'application',
-            'x-www-form-urlencoded',
-            charset: 'utf-8',
-          );
+          req.headers.contentType = json != null
+              ? ContentType('application', 'json', charset: 'utf-8')
+              : ContentType(
+                  'application',
+                  'x-www-form-urlencoded',
+                  charset: 'utf-8',
+                );
           req.write(body);
         }
         res = await req.close().timeout(_timeout);
@@ -108,6 +115,10 @@ class CookieSession {
         throw HttpException('Timed out reaching ${target.host}');
       } on SocketException catch (e) {
         throw HttpException('Could not reach ${target.host}: ${e.message}');
+      } on TlsException catch (e) {
+        throw HttpException(
+          'Secure connection to ${target.host} failed: ${e.message}',
+        );
       }
       _store(target, res);
 

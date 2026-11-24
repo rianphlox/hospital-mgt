@@ -6,10 +6,14 @@
 // Prints counts and statuses only, never names.
 import 'package:crownlog_flutter/services/hmo/hmo_client.dart';
 import 'package:crownlog_flutter/services/hmo/hmo_registry.dart';
+import 'package:crownlog_flutter/services/hmo/tht_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _thtId = String.fromEnvironment('THT_ID');
 const _phmlId = String.fromEnvironment('PHML_ID');
+
+/// Optional extra THT queries, e.g. a name and a 1110000000-01 style ID.
+const _thtExtra = String.fromEnvironment('THT_EXTRA'); // '|'-separated
 
 void main() {
   for (final (hmo, query) in [('tht', _thtId), ('phml', _phmlId)]) {
@@ -64,6 +68,26 @@ void main() {
           hmo == 'tht' ? 'ZZ0000000000_9' : 'zzqxnotaname',
         );
         expect(r.records, isEmpty);
+      },
+    );
+  }
+
+  for (final q in _thtExtra.split('|').where((q) => q.trim().isNotEmpty)) {
+    test(
+      'tht extra lookup #${_thtExtra.split('|').indexOf(q) + 1}',
+      skip: HmoRegistry.credentialsFor('tht').isComplete ? false : 'no login',
+      () async {
+        final sw = Stopwatch()..start();
+        final r = await HmoRegistry.lookup('tht', q);
+        // ignore: avoid_print
+        print(
+          'tht extra #${_thtExtra.split('|').indexOf(q) + 1} '
+          '(${ThtClient.looksLikeId(q) ? 'id' : 'name'}): '
+          'count=${r.records.length} total=${r.total ?? r.records.length} '
+          'statuses=${r.records.map((m) => m.status).toList()} '
+          'nameHasEntity=${r.records.any((m) => m.name.contains('&'))} '
+          'ms=${sw.elapsedMilliseconds}',
+        );
       },
     );
   }

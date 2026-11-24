@@ -100,7 +100,7 @@ class HmoOption {
     HmoOption(
       'tht',
       'THT (Total Health Trust)',
-      'Enrollee ID, e.g. AF1234567890_1',
+      'Enrollee ID (AF1234567890_1, 1110000000-01) or name',
     ),
     HmoOption('phml', 'PHML', 'NHIS number or name'),
   ];

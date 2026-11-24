@@ -45,10 +45,53 @@ String? toDdMmYyyy(Object? raw) {
   return s; // Unknown format: show what the portal gave.
 }
 
-String titleCase(String s) => s.toLowerCase().replaceAllMapped(
-  RegExp(r'\b([a-z])'),
-  (m) => m[1]!.toUpperCase(),
-);
+const _entities = {
+  'nbsp': ' ',
+  'amp': '&',
+  'quot': '"',
+  'apos': "'",
+  'lt': '<',
+  'gt': '>',
+};
+
+/// Decodes HTML entities the portals leave in names (&nbsp; &amp; &#39;
+/// &#x27; ..., any case), turns non-breaking spaces into spaces, collapses
+/// runs of whitespace and trims.
+String cleanText(String s) {
+  final decoded = s.replaceAllMapped(
+    RegExp(r'&(#x[0-9a-f]+|#[0-9]+|[a-z]+);', caseSensitive: false),
+    (m) {
+      final e = m[1]!.toLowerCase();
+      int? code;
+      if (e.startsWith('#x')) {
+        code = int.tryParse(e.substring(2), radix: 16);
+      } else if (e.startsWith('#')) {
+        code = int.tryParse(e.substring(1));
+      }
+      if (code != null && code > 0 && code <= 0x10FFFF) {
+        return String.fromCharCode(code);
+      }
+      return _entities[e] ?? m[0]!;
+    },
+  );
+  return decoded
+      .replaceAll('\u00A0', ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+}
+
+/// Cleans [s] (see [cleanText]) and title-cases it: "JOHN DOE" -> "John Doe".
+String titleCase(String s) => cleanText(s)
+    .toLowerCase()
+    .replaceAllMapped(
+      RegExp(r'(^|[\s\-(])([a-z])'),
+      (m) => '${m[1]}${m[2]!.toUpperCase()}',
+    )
+    // O'brien -> O'Brien, but Mary's stays Mary's.
+    .replaceAllMapped(
+      RegExp(r"(^|[\s\-(])([A-Z])'([a-z])"),
+      (m) => "${m[1]}${m[2]}'${m[3]!.toUpperCase()}",
+    );
 
 /// Trimmed string, or '' for null.
 String str(Object? v) => v == null ? '' : v.toString().trim();

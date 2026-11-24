@@ -36,6 +36,48 @@ void main() {
     expect(toDdMmYyyy(null), isNull);
   });
 
+  test('names: HTML entities and nbsp decoded before title-casing', () {
+    expect(titleCase('CHIDI &nbsp; NWOSU'), 'Chidi Nwosu');
+    expect(titleCase('CHIDI&NBSP;NWOSU'), 'Chidi Nwosu');
+    expect(titleCase('ADA\u00A0\u00A0 OBI '), 'Ada Obi');
+    expect(titleCase("O&#39;BRIEN &amp; SONS"), "O'Brien & Sons");
+    expect(titleCase('MARY&#x27;S'), "Mary's");
+    expect(cleanText('  A   B\tC  '), 'A B C');
+    final tht = ThtClient.rowToMember({
+      'EligibilityStatus': 'ELIGIBLE',
+      'FirstName': 'CHIDI',
+      'OtherName': '&nbsp;',
+      'LastName': 'NWOSU',
+    });
+    expect(tht.name, 'Chidi Nwosu');
+    final phml = PhmlClient.rowToMember({
+      'firstname': 'AMAKA&nbsp;',
+      'surname': 'EZE',
+    });
+    expect(phml.name, 'Amaka Eze');
+  });
+
+  test('THT IDs vs names', () {
+    expect(ThtClient.looksLikeId('AF1234567890_1'), isTrue);
+    expect(ThtClient.looksLikeId('1110000000-01'), isTrue);
+    expect(ThtClient.looksLikeId('Ada Obi'), isFalse);
+    expect(ThtClient.normaliseId('1110000000/01'), '1110000000-01');
+    final m = ThtClient.searchRowToMember({
+      'LegacyCode': '1110000000-01',
+      'FirstName': 'ADA',
+      'LastName': 'OBI',
+      'DependantID': 1,
+      'GenderName': 'Female',
+      'dob': '2020-01-02T00:00:00',
+      'IsTerminated': 'false',
+      'Terminationdate': '2026-12-31T00:00:00',
+    });
+    expect(m.status, 'on list');
+    expect(m.dateOfBirth, '02/01/2020');
+    expect(m.coverEnds, '31/12/2026');
+    expect(m.relationship, 'Dependant 1');
+  });
+
   test('THT row normalises', () {
     final m = ThtClient.rowToMember({
       'EligibilityStatus': 'ELIGIBLE',

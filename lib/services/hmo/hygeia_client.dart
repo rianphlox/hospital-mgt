@@ -17,7 +17,7 @@ class _HygeiaSession {
 /// Bearer token: member/searchwithenrolleenumber ("1234567/0") and
 /// member/searchwithname. Eligibility is worked out from the termination
 /// flags and the member's cover dates.
-/// Photos: member/memberimage/<memberid> returns the photo URL, which loads
+/// Photos: `member/memberimage/{memberid}` returns the photo URL, which loads
 /// with a plain GET.
 ///
 /// Built from the browser's network log; the API (port 1932) could not be

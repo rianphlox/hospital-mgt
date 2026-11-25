@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import '../../models/hmo_models.dart';
 import '../../services/hmo_service.dart';
@@ -222,6 +224,8 @@ class _HmoCheckScreenState extends State<HmoCheckScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _photo(m),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -254,6 +258,78 @@ class _HmoCheckScreenState extends State<HmoCheckScreen> {
           const SizedBox(width: 8),
           _statusChip(m.status),
         ],
+      ),
+    );
+  }
+
+  static const _photoSize = 56.0;
+
+  Widget _photoPlaceholder(double size) => Container(
+    width: size,
+    height: size,
+    color: _stoneBg,
+    child: Icon(Icons.person, color: _stone500, size: size * 0.55),
+  );
+
+  /// The member's photo (or a plain placeholder), [size] px square.
+  Widget _photoImage(HmoMember m, double size, {BoxFit fit = BoxFit.cover}) {
+    if (m.photoBytes != null) {
+      return Image.memory(
+        Uint8List.fromList(m.photoBytes!),
+        width: size,
+        height: size,
+        fit: fit,
+        errorBuilder: (_, _, _) => _photoPlaceholder(size),
+      );
+    }
+    if (m.photoUrl == null) return _photoPlaceholder(size);
+    return Image.network(
+      m.photoUrl!,
+      headers: m.photoHeaders,
+      width: size,
+      height: size,
+      fit: fit,
+      loadingBuilder: (context, child, progress) =>
+          progress == null ? child : _photoPlaceholder(size),
+      errorBuilder: (_, _, _) => _photoPlaceholder(size),
+    );
+  }
+
+  Widget _photo(HmoMember m) {
+    final image = ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: _photoImage(m, _photoSize),
+    );
+    if (!m.hasPhoto) return image;
+    return GestureDetector(
+      onTap: () => _showPhoto(m),
+      child: Semantics(label: 'Photo of ${m.name}', button: true, child: image),
+    );
+  }
+
+  void _showPhoto(HmoMember m) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => Dialog(
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _photoImage(m, 300, fit: BoxFit.contain),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Text(
+                m.name,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
       ),
     );
   }

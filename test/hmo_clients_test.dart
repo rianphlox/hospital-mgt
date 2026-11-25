@@ -57,6 +57,52 @@ void main() {
     expect(phml.name, 'Amaka Eze');
   });
 
+  test('THT photo URL from PixPath', () {
+    const base = ThtClient.photoBase;
+    expect(
+      ThtClient.photoUrlFrom(r'D:\pictures\1234567-01.jpg'),
+      '${base}1234567-01.jpg',
+    );
+    expect(
+      ThtClient.photoUrlFrom(r'D:\Pictures\ABC123.PNG'),
+      '${base}ABC123.PNG',
+    );
+    expect(
+      ThtClient.photoUrlFrom(r'D:\pictures\my photo#1.jpg'),
+      '${base}my%20photo%231.jpg',
+    );
+    expect(ThtClient.photoUrlFrom(''), isNull);
+    expect(ThtClient.photoUrlFrom('   '), isNull);
+    expect(ThtClient.photoUrlFrom(null), isNull);
+    expect(ThtClient.photoUrlFrom(r'D:\pictures\'), isNull);
+
+    final elig = ThtClient.rowToMember({
+      'EligibilityStatus': 'ELIGIBLE',
+      'FirstName': 'ADA',
+      'LastName': 'OBI',
+      'PixPath': r'D:\pictures\x1.jpg',
+    });
+    expect(elig.photoUrl, '${base}x1.jpg');
+    expect(elig.hasPhoto, isTrue);
+    final noPix = ThtClient.rowToMember({
+      'EligibilityStatus': 'ELIGIBLE',
+      'FirstName': 'ADA',
+      'PixPath': '',
+    });
+    expect(noPix.photoUrl, isNull);
+    expect(noPix.hasPhoto, isFalse);
+    final search = ThtClient.searchRowToMember({
+      'LegacyCode': '1110000000-01',
+      'FirstName': 'ADA',
+      'PixPath': r'D:\Pictures\x2.jpg',
+    });
+    expect(search.photoUrl, '${base}x2.jpg');
+    expect(
+      PhmlClient.rowToMember({'nhis_no': '1', 'firstname': 'A'}).photoUrl,
+      isNull,
+    );
+  });
+
   test('THT IDs vs names', () {
     expect(ThtClient.looksLikeId('AF1234567890_1'), isTrue);
     expect(ThtClient.looksLikeId('1110000000-01'), isTrue);

@@ -19,6 +19,21 @@ class ThtClient implements HmoClient {
   String get queryHint =>
       'THT enrollee ID (e.g. AF1234567890_1 or 1110000000-01) or name';
 
+  /// Where the THT portal loads member photos from (a different server from
+  /// the portal; no session cookie needed).
+  static const photoBase =
+      'https://medismarts.net:1913/medicloud/uploads/enrolment-uploads/pictures/';
+
+  /// PixPath looks like `X:\\pictures\\<file>.jpg`; the portal keeps only the
+  /// file name (the folder is sometimes "Pictures").
+  static String? photoUrlFrom(Object? pixPath) {
+    final p = str(pixPath);
+    if (p.isEmpty) return null;
+    final file = p.split(RegExp(r'[\\/]')).last.trim();
+    if (file.isEmpty) return null;
+    return '$photoBase${Uri.encodeComponent(file)}';
+  }
+
   static HmoMember rowToMember(Map<String, dynamic> row) {
     final eligible = str(row['EligibilityStatus']).toUpperCase() == 'ELIGIBLE';
     final name = titleCase(
@@ -47,6 +62,7 @@ class ThtClient implements HmoClient {
       coverEnds:
           toDdMmYyyy(row['MemberTermDate']) ?? toDdMmYyyy(row['GroupTermDate']),
       notes: notes.isEmpty ? null : notes.join(' · '),
+      photoUrl: photoUrlFrom(row['PixPath']),
     );
   }
 
@@ -99,6 +115,7 @@ class ThtClient implements HmoClient {
       notes: terminated
           ? 'Terminated on the THT list'
           : 'Search this member ID to check eligibility',
+      photoUrl: photoUrlFrom(row['PixPath'] ?? row['pixpath']),
     );
   }
 

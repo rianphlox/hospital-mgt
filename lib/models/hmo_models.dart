@@ -11,6 +11,17 @@ class HmoMember {
   final String? coverEnds; // dd/mm/yyyy
   final String? notes;
 
+  /// Member photo, if the HMO has one (THT only for now).
+  final String? photoUrl;
+
+  /// Extra headers needed to load [photoUrl] (e.g. a Bearer token), if any.
+  final Map<String, String>? photoHeaders;
+
+  /// Photo bytes, for HMOs that return the image inline instead of a URL.
+  final List<int>? photoBytes;
+
+  bool get hasPhoto => photoUrl != null || photoBytes != null;
+
   const HmoMember({
     required this.hmo,
     required this.memberId,
@@ -22,6 +33,9 @@ class HmoMember {
     this.plan,
     this.coverEnds,
     this.notes,
+    this.photoUrl,
+    this.photoHeaders,
+    this.photoBytes,
   });
 
   static String? _s(Object? v) {
@@ -40,6 +54,7 @@ class HmoMember {
     status: _s(j['status']) ?? 'on list',
     coverEnds: _s(j['coverEnds']),
     notes: _s(j['notes']),
+    photoUrl: _s(j['photoUrl']),
   );
 }
 

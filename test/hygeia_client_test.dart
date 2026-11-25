@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 final _today = DateTime(2026, 11, 25);
 
 Map<String, dynamic> _row({
+  int memberid = 99,
   String legacy = '1234567',
   int dep = 0,
   String first = 'ADA',
@@ -23,7 +24,7 @@ Map<String, dynamic> _row({
   String termination = '2026-12-31T00:00:00',
 }) => {
   'nin': null,
-  'memberid': 99,
+  'memberid': memberid,
   'lastname': last,
   'firstname': first,
   'othername': other,
@@ -65,6 +66,17 @@ class _FakeHygeia {
   Map<String, List<Map<String, dynamic>>> byId = {};
   Map<String, List<Map<String, dynamic>>> byName = {};
 
+  /// memberid -> raw body of member/memberimage (missing = 404).
+  Map<String, String> photos = {};
+  Set<String> slowPhotos = {};
+
+  /// Requests other than photo lookups.
+  List<({String path, Map<String, String> headers, Object? body})>
+  get nonPhoto => [
+    for (final q in requests)
+      if (!q.path.startsWith('member/memberimage/')) q,
+  ];
+
   String get base => 'http://127.0.0.1:${server.port}/hygeiaapiservice/api';
 
   Future<void> start() async {
@@ -83,6 +95,16 @@ class _FakeHygeia {
         res.write(_loginJson('jwt-$logins', success: !rejectLogin));
       } else if (headers['authorization'] != 'Bearer jwt-$logins') {
         res.statusCode = 401;
+      } else if (path.startsWith('member/memberimage/')) {
+        final id = path.split('/').last;
+        if (slowPhotos.contains(id)) {
+          await Future<void>.delayed(const Duration(seconds: 10));
+        }
+        if (photos.containsKey(id)) {
+          res.write(photos[id]);
+        } else {
+          res.statusCode = 404;
+        }
       } else if (expireNextSearches > 0) {
         expireNextSearches--;
         res.statusCode = 401;
@@ -201,7 +223,7 @@ void main() {
       expect(login.headers['content-type'], startsWith('application/json'));
       expect(login.headers['origin'], 'https://online.hygeiahmo.com');
 
-      final search = api.requests.last;
+      final search = api.nonPhoto.last;
       expect(search.path, 'member/searchwithenrolleenumber');
       expect(search.body, {'SearchTarget': '1234567/0'});
       expect(search.headers['authorization'], 'Bearer jwt-1');
@@ -215,7 +237,7 @@ void main() {
     final r = await client.search(session, '1234567');
     expect(r.records.length, 2);
     final targets = [
-      for (final q in api.requests.skip(1)) (q.body as Map)['SearchTarget'],
+      for (final q in api.nonPhoto.skip(1)) (q.body as Map)['SearchTarget'],
     ];
     expect(targets, ['1234567', '1234567/0']);
   });
@@ -224,7 +246,7 @@ void main() {
     api.byId['1234567'] = [_row()];
     final session = await client.login(creds);
     await client.search(session, '1234567');
-    expect(api.requests.length, 2);
+    expect(api.nonPhoto.length, 2);
   });
 
   test('name search posts the name; short names are refused', () async {
@@ -232,7 +254,7 @@ void main() {
     final session = await client.login(creds);
     final r = await client.search(session, '  Ada   Obi ');
     expect(r.records.single.name, 'Ada Obi');
-    expect(api.requests.last.path, 'member/searchwithname');
+    expect(api.nonPhoto.last.path, 'member/searchwithname');
     expect(() => client.search(session, 'Al'), throwsA(isA<HmoPortalError>()));
   });
 
@@ -287,6 +309,98 @@ void main() {
     await expectLater(
       client.search(session, '1234567/0'),
       throwsA(isA<HmoSessionExpired>()),
+    );
+  });
+
+  test('memberimage response parsing', () {
+    const url = 'https://example.test/uploads/pictures/20200101000000.jpg';
+    expect(HygeiaClient.photoUrlFromResponse(jsonEncode(url)), url);
+    expect(HygeiaClient.photoUrlFromResponse(url), url);
+    expect(HygeiaClient.photoUrlFromResponse('  "$url"  '), url);
+    expect(HygeiaClient.photoUrlFromResponse("'$url'"), url);
+    expect(HygeiaClient.photoUrlFromResponse(jsonEncode('"$url"')), url);
+    expect(
+      HygeiaClient.photoUrlFromResponse('http://example.test/a.png'),
+      'http://example.test/a.png',
+    );
+    expect(HygeiaClient.photoUrlFromResponse(''), isNull);
+    expect(HygeiaClient.photoUrlFromResponse('null'), isNull);
+    expect(HygeiaClient.photoUrlFromResponse('""'), isNull);
+    expect(HygeiaClient.photoUrlFromResponse('no photo'), isNull);
+    expect(HygeiaClient.photoUrlFromResponse('/uploads/a.jpg'), isNull);
+    expect(HygeiaClient.photoUrlFromResponse('javascript:alert(1)'), isNull);
+    expect(
+      HygeiaClient.photoUrlFromResponse('ftp://example.test/a.jpg'),
+      isNull,
+    );
+  });
+
+  test('search fetches photos with the Bearer token', () async {
+    const url = 'https://example.test/uploads/pictures/p1.jpg';
+    api.byId['1234567/0'] = [
+      _row(memberid: 11),
+      _row(memberid: 12, dep: 1),
+      _row(memberid: 13, dep: 2),
+      _row(memberid: 14, dep: 3),
+    ];
+    api.photos['11'] = jsonEncode(url); // JSON string
+    api.photos['12'] = 'null'; // no photo
+    api.photos['13'] = 'not a url';
+    // 14: 404
+    final session = await client.login(creds);
+    final r = await client.search(session, '1234567/0');
+    expect(r.records.map((m) => m.photoUrl).toList(), [url, null, null, null]);
+    expect(r.records.first.hasPhoto, isTrue);
+    final photoReqs = api.requests
+        .where((q) => q.path.startsWith('member/memberimage/'))
+        .toList();
+    expect(photoReqs, hasLength(4));
+    expect(
+      photoReqs.every((q) => q.headers['authorization'] == 'Bearer jwt-1'),
+      isTrue,
+    );
+  });
+
+  test('photo lookups are capped at the first 10 people', () async {
+    api.byName['Ada Obi'] = [
+      for (var i = 0; i < 12; i++) _row(memberid: 100 + i, dep: i),
+    ];
+    for (var i = 0; i < 12; i++) {
+      api.photos['${100 + i}'] = jsonEncode('https://example.test/$i.jpg');
+    }
+    final session = await client.login(creds);
+    final r = await client.search(session, 'Ada Obi');
+    expect(r.records, hasLength(12));
+    expect(r.records.where((m) => m.photoUrl != null), hasLength(10));
+    expect(r.records.last.photoUrl, isNull);
+    expect(
+      api.requests.where((q) => q.path.startsWith('member/memberimage/')),
+      hasLength(HygeiaClient.maxPhotoLookups),
+    );
+  });
+
+  test('a slow or broken photo call does not break the search', () async {
+    api.byId['1234567/0'] = [_row(memberid: 21), _row(memberid: 22, dep: 1)];
+    api.slowPhotos.add('21');
+    api.photos['21'] = jsonEncode('https://example.test/slow.jpg');
+    api.photos['22'] = jsonEncode('https://example.test/fast.jpg');
+    final session = await client.login(creds);
+    final sw = Stopwatch()..start();
+    final r = await client.search(session, '1234567/0');
+    expect(sw.elapsed, lessThan(const Duration(seconds: 10)));
+    expect(r.records.first.photoUrl, isNull);
+    expect(r.records.last.photoUrl, 'https://example.test/fast.jpg');
+  });
+
+  test('missing or non-numeric memberid skips the photo call', () async {
+    final row = _row()..remove('memberid');
+    api.byId['1234567/0'] = [row];
+    final session = await client.login(creds);
+    final r = await client.search(session, '1234567/0');
+    expect(r.records.single.photoUrl, isNull);
+    expect(
+      api.requests.where((q) => q.path.startsWith('member/memberimage/')),
+      isEmpty,
     );
   });
 }

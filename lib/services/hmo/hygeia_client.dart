@@ -17,6 +17,8 @@ class _HygeiaSession {
 /// Bearer token: member/searchwithenrolleenumber ("1234567/0") and
 /// member/searchwithname. Eligibility is worked out from the termination
 /// flags and the member's cover dates.
+/// Photos: member/memberimage/<memberid> returns the photo URL, which loads
+/// with a plain GET.
 ///
 /// Built from the browser's network log; the API (port 1932) could not be
 /// reached from the build machine, so this client is covered by offline
@@ -65,7 +67,11 @@ class HygeiaClient implements HmoClient {
     return s == 'true' || s == '1';
   }
 
-  static HmoMember rowToMember(Map<String, dynamic> row, DateTime now) {
+  static HmoMember rowToMember(
+    Map<String, dynamic> row,
+    DateTime now, {
+    String? photoUrl,
+  }) {
     final today = DateTime(now.year, now.month, now.day);
     final dep = int.tryParse(str(row['dependantid']));
     final legacy = str(row['legacycode']);
@@ -107,6 +113,7 @@ class HygeiaClient implements HmoClient {
       status: reason == null ? 'eligible' : 'not eligible',
       coverEnds: endsText,
       notes: notes.isEmpty ? null : notes.join(' · '),
+      photoUrl: photoUrl,
     );
   }
 
@@ -184,6 +191,55 @@ class HygeiaClient implements HmoClient {
     throw const HmoPortalError('Hygeia portal sent an unreadable answer');
   }
 
+  /// Photos are one call per person, so only the first few are looked up.
+  static const maxPhotoLookups = 10;
+  static const _photoTimeout = Duration(seconds: 8);
+
+  /// member/memberimage answers with the photo URL as a JSON string (or
+  /// plain text); empty or null when there is no photo. Only http(s) URLs
+  /// are accepted.
+  static String? photoUrlFromResponse(String body) {
+    Object? v = tryJson(body.trim());
+    v ??= body;
+    if (v is Map) v = v['url'] ?? v['imageUrl'] ?? v['data'];
+    var url = str(v);
+    while (url.length >= 2 &&
+        ((url.startsWith('"') && url.endsWith('"')) ||
+            (url.startsWith("'") && url.endsWith("'")))) {
+      url = url.substring(1, url.length - 1).trim();
+    }
+    final uri = Uri.tryParse(url);
+    if (uri == null ||
+        !(uri.isScheme('http') || uri.isScheme('https')) ||
+        uri.host.isEmpty) {
+      return null;
+    }
+    return url;
+  }
+
+  /// The photo URL for one member, or null. Never throws: a missing photo
+  /// must not break the search.
+  Future<String?> _photoUrl(_HygeiaSession s, Object? memberId) async {
+    final id = str(memberId);
+    if (!RegExp(r'^\d+$').hasMatch(id)) return null;
+    try {
+      final r = await s.http
+          .request(
+            'GET',
+            '$base/member/memberimage/$id',
+            headers: {
+              ..._jsonHeaders,
+              'Authorization': 'Bearer ${s.accessToken}',
+            },
+          )
+          .timeout(_photoTimeout);
+      if (r.status != 200) return null;
+      return photoUrlFromResponse(r.body);
+    } catch (_) {
+      return null;
+    }
+  }
+
   @override
   Future<HmoSearchResult> search(Object session, String query) async {
     final s = session as _HygeiaSession;
@@ -210,6 +266,13 @@ class HygeiaClient implements HmoClient {
         q.replaceAll(RegExp(r'\s+'), ' '),
       );
     }
-    return HmoSearchResult([for (final r in rows) rowToMember(r, now)]);
+    final photos = await Future.wait([
+      for (final (i, r) in rows.indexed)
+        i < maxPhotoLookups ? _photoUrl(s, r['memberid']) : Future.value(null),
+    ]);
+    return HmoSearchResult([
+      for (final (i, r) in rows.indexed)
+        rowToMember(r, now, photoUrl: photos[i]),
+    ]);
   }
 }

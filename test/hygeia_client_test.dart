@@ -69,6 +69,9 @@ class _FakeHygeia {
   /// SearchTargets that answer 500.
   Set<String> failTargets = {};
 
+  /// SearchTargets that answer with this HTTP status (e.g. 400, 404).
+  Map<String, int> statusFor = {};
+
   /// memberid -> raw body of member/memberimage (missing = 404).
   Map<String, String> photos = {};
   Set<String> slowPhotos = {};
@@ -113,8 +116,8 @@ class _FakeHygeia {
         res.statusCode = 401;
       } else {
         final target = (body as Map)['SearchTarget'] as String;
-        if (failTargets.contains(target)) {
-          res.statusCode = 500;
+        if (failTargets.contains(target) || statusFor.containsKey(target)) {
+          res.statusCode = statusFor[target] ?? 500;
           await res.close();
           return;
         }
@@ -303,7 +306,7 @@ void main() {
   });
 
   test(
-    'principal found by ID: dependants found by trying /1, /2 ...',
+    'principal found by ID: dependants found by trying /1 .. /6 at once',
     () async {
       api.byId['1234567/0'] = [_row(memberid: 1)];
       api.byId['1234567/1'] = [_row(memberid: 2, dep: 1, first: 'EMEKA')];
@@ -319,15 +322,13 @@ void main() {
       final targets = [
         for (final q in api.nonPhoto.skip(1)) (q.body as Map)['SearchTarget'],
       ];
-      // Bare number first, then /1, /2, and two misses (/3, /4) end it.
-      expect(targets, [
-        '1234567/0',
-        '1234567',
-        '1234567/1',
-        '1234567/2',
-        '1234567/3',
-        '1234567/4',
-      ]);
+      // Bare number first, then /1 .. /6 (in parallel, any order). /5 and
+      // /6 missed, so /7 .. /10 and the zero-padded fallback are not tried.
+      expect(targets.take(2), ['1234567/0', '1234567']);
+      expect(targets.skip(2).toSet(), {
+        for (var d = 1; d <= 6; d++) '1234567/$d',
+      });
+      expect(targets, hasLength(8));
     },
   );
 
@@ -517,6 +518,138 @@ void main() {
     expect(
       api.requests.where((q) => q.path.startsWith('member/memberimage/')),
       isEmpty,
+    );
+  });
+
+  // ---- Family lookups that hit errors (all data made up) ----
+
+  Map<String, List<Map<String, dynamic>>> family(String legacy) => {
+    for (final (dep, first) in [
+      (1, 'AMINA'),
+      (2, 'MUSA'),
+      (3, 'HAUWA'),
+      (4, 'YUSUF'),
+      (5, 'FATIMA'),
+    ])
+      '$legacy/$dep': [
+        _row(memberid: 50 + dep, legacy: legacy, dep: dep, first: first),
+      ],
+  };
+
+  for (final status in [400, 500]) {
+    test('bare number answering $status: /1, /2 ... still found', () async {
+      api.byId['7654321/0'] = [_row(memberid: 50, legacy: '7654321')];
+      api.byId.addAll(family('7654321'));
+      api.statusFor['7654321'] = status;
+      final session = await client.login(creds);
+      final r = await client.search(session, '7654321/0');
+      expect(r.records, hasLength(6));
+    });
+  }
+
+  test(
+    'bare ID search answering 400 falls back to /0, then the family',
+    () async {
+      api.byId['7654321/0'] = [_row(memberid: 50, legacy: '7654321')];
+      api.byId.addAll(family('7654321'));
+      api.statusFor['7654321'] = 400;
+      final session = await client.login(creds);
+      final r = await client.search(session, '7654321');
+      expect(r.records, hasLength(6));
+    },
+  );
+
+  for (final status in [404, 400, 500]) {
+    test('dependant slot answering $status does not stop the others', () async {
+      api.byId['7654321/0'] = [_row(memberid: 50, legacy: '7654321')];
+      api.byId.addAll(family('7654321'));
+      api.byId.remove('7654321/2'); // deleted dependant
+      api.statusFor['7654321/2'] = status;
+      final session = await client.login(creds);
+      final r = await client.search(session, '7654321/0');
+      expect(r.records.map((m) => m.memberId).toSet(), {
+        '7654321/0',
+        '7654321/1',
+        '7654321/3',
+        '7654321/4',
+        '7654321/5',
+      });
+    });
+  }
+
+  test('/5 or /6 found: /7 .. /10 are tried too', () async {
+    api.byId['7654321/0'] = [_row(memberid: 50, legacy: '7654321')];
+    api.byId.addAll(family('7654321'));
+    api.byId['7654321/8'] = [
+      _row(memberid: 58, legacy: '7654321', dep: 8, first: 'ZAINAB'),
+    ];
+    final session = await client.login(creds);
+    final r = await client.search(session, '7654321/0');
+    expect(r.records.map((m) => m.memberId), contains('7654321/8'));
+    final targets = [
+      for (final q in api.nonPhoto) (q.body as Map?)?['SearchTarget'],
+    ];
+    expect(targets, contains('7654321/10'));
+    expect(targets, isNot(contains('7654321/11')));
+  });
+
+  test('zero-padded /01 is tried when /1 .. /6 find nobody', () async {
+    api.byId['7654321/0'] = [_row(memberid: 50, legacy: '7654321')];
+    api.byId['7654321/01'] = [
+      _row(memberid: 51, legacy: '7654321', dep: 1, first: 'AMINA'),
+    ];
+    final session = await client.login(creds);
+    final r = await client.search(session, '7654321/0');
+    expect(r.records.map((m) => m.memberId), ['7654321/0', '7654321/1']);
+  });
+
+  test('expired session during a family lookup is still reported', () async {
+    api.byId['7654321/0'] = [_row(memberid: 50, legacy: '7654321')];
+    api.statusFor['7654321/3'] = 401;
+    final session = await client.login(creds);
+    await expectLater(
+      client.search(session, '7654321/0'),
+      throwsA(isA<HmoSessionExpired>()),
+    );
+  });
+
+  test('principal, spouse and 4 children group as one family', () async {
+    api.byId['7654321/0'] = [
+      _row(memberid: 50, legacy: '7654321', first: 'ABDUL', last: 'SANI'),
+    ];
+    api.byId.addAll(family('7654321'));
+    final session = await client.login(creds);
+    final r = await client.search(session, '7654321/0');
+    final result = HmoLookupResult(
+      hmo: 'hygeia',
+      label: 'Hygeia',
+      results: r.records,
+      total: r.records.length,
+    );
+    final f = result.families.single;
+    expect(f.id, '7654321');
+    expect(f.principal!.memberId, '7654321/0');
+    expect(f.principal!.relationship, 'Principal');
+    expect(f.dependants.map((m) => m.memberId), [
+      for (var d = 1; d <= 5; d++) '7654321/$d',
+    ]);
+    expect(f.dependants.map((m) => m.dependantNo), [1, 2, 3, 4, 5]);
+  });
+
+  test('dependant number inside legacycode still groups by family', () {
+    final m = HygeiaClient.rowToMember({
+      ..._row(legacy: ' 7654321/3 '),
+      'dependantid': null,
+    }, _today);
+    expect(m.familyId, '7654321');
+    expect(m.memberId, '7654321/3');
+    expect(m.dependantNo, 3);
+    expect(
+      HygeiaClient.dependantNoOf({
+        'legacycode': '7654321',
+        'dependantid': '00',
+      }),
+      0,
     );
   });
 }

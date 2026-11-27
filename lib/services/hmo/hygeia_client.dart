@@ -21,7 +21,7 @@ class _HygeiaSession {
 /// with a plain GET.
 /// Family: a principal's dependants share the enrollee number ("1234567/1",
 /// "1234567/2" ...). They are found by searching the bare number, then by
-/// trying each "/n" in turn. Contact fields other than `phoneno` are read
+/// trying "/1".."/6" in parallel (see [_family]). Contact fields other than `phoneno` are read
 /// under several likely names because only part of the answer was captured.
 ///
 /// Built from the browser's network log; the API (port 1932) could not be
@@ -71,14 +71,33 @@ class HygeiaClient implements HmoClient {
     return s == 'true' || s == '1';
   }
 
+  /// The family (enrollee) number of a row: `legacycode` without spaces or
+  /// a trailing "/n", in case the portal ever puts the dependant number in
+  /// it.
+  static String familyOf(Map<String, dynamic> row) => str(
+    row['legacycode'],
+  ).replaceAll(RegExp(r'\s+'), '').replaceFirst(RegExp(r'/\d+$'), '');
+
+  /// 0 for the principal, 1, 2, ... for dependants: `dependantid` ("0",
+  /// "01", 1 ...), else the "/n" at the end of `legacycode`.
+  static int? dependantNoOf(Map<String, dynamic> row) {
+    final d = int.tryParse(str(row['dependantid']));
+    if (d != null) return d;
+    final m = RegExp(r'/(\d+)$').firstMatch(str(row['legacycode']));
+    return m == null ? null : int.parse(m[1]!);
+  }
+
+  static String _key(Map<String, dynamic> r) =>
+      '${familyOf(r)}/${dependantNoOf(r) ?? ''}';
+
   static HmoMember rowToMember(
     Map<String, dynamic> row,
     DateTime now, {
     String? photoUrl,
   }) {
     final today = DateTime(now.year, now.month, now.day);
-    final dep = int.tryParse(str(row['dependantid']));
-    final legacy = str(row['legacycode']);
+    final dep = dependantNoOf(row);
+    final legacy = familyOf(row);
     final starts = _date(row['effectivedate']);
     final ends = _date(row['terminationdate']);
     final endsText = toDdMmYyyy(str(row['terminationdate']));
@@ -295,51 +314,80 @@ class HygeiaClient implements HmoClient {
   static const maxFamilyLookups = 3;
   static const maxDependantProbes = 10;
 
-  /// Rows of [legacy]'s family not already in [have]. First the bare
-  /// enrollee number (which may return the whole family); if that brings
-  /// nobody new, tries "legacy/1", "legacy/2", ... one at a time and stops
-  /// after two misses in a row. Never throws except for an expired session.
+  /// Dependant numbers tried at once; if either of the last two is found,
+  /// the rest up to [maxDependantProbes] are tried too.
+  static const firstProbeBatch = 6;
+
+  /// One enrollee-number search that never throws except for an expired
+  /// session: a 400/404/500 or unreadable answer counts as "nobody".
+  Future<List<Map<String, dynamic>>> _tryNumber(
+    _HygeiaSession s,
+    String target,
+  ) async {
+    try {
+      return await _post(s, 'member/searchwithenrolleenumber', target);
+    } on HmoSessionExpired {
+      rethrow;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Rows of [legacy]'s family not already in [have].
+  ///
+  /// 1. The bare enrollee number, which may return the whole family.
+  /// 2. If that brings nobody new: "legacy/1" .. "legacy/6" in parallel
+  ///    (one slow round trip on a phone instead of six), then /7 .. /10 if
+  ///    /5 or /6 was found.
+  /// 3. If still nobody: "legacy/01" and "legacy/02", in case the portal
+  ///    wants zero-padded numbers.
+  ///
+  /// Each search fails on its own: an error on one number (deleted
+  /// dependant, 400 for the bare number) does not stop the others. Only an
+  /// expired session is thrown.
   Future<List<Map<String, dynamic>>> _family(
     _HygeiaSession s,
     String legacy,
     Set<String> have, {
     bool skipBare = false,
   }) async {
-    String key(Map<String, dynamic> r) =>
-        '${str(r['legacycode'])}/${str(r['dependantid'])}';
-    bool ours(Map<String, dynamic> r) => str(r['legacycode']) == legacy;
     final found = <Map<String, dynamic>>[];
     void add(List<Map<String, dynamic>> rows) {
       for (final r in rows) {
-        if (ours(r) && have.add(key(r))) found.add(r);
+        if (familyOf(r) == legacy && have.add(_key(r))) found.add(r);
       }
     }
 
-    try {
-      if (!skipBare) {
-        add(await _post(s, 'member/searchwithenrolleenumber', legacy));
-        if (found.isNotEmpty) return found;
-      }
-      var misses = 0;
-      for (var dep = 1; dep <= maxDependantProbes && misses < 2; dep++) {
-        if (have.contains('$legacy/$dep')) {
-          misses = 0;
-          continue;
-        }
-        final rows = await _post(
-          s,
-          'member/searchwithenrolleenumber',
-          '$legacy/$dep',
-        );
+    Future<Set<int>> probe(Iterable<String> suffixes) async {
+      final targets = [
+        for (final x in suffixes)
+          if (!have.contains('$legacy/${int.parse(x)}')) x,
+      ];
+      final answers = await Future.wait([
+        for (final x in targets) _tryNumber(s, '$legacy/$x'),
+      ]);
+      final hits = <int>{};
+      for (final (i, rows) in answers.indexed) {
         final before = found.length;
         add(rows);
-        misses = found.length > before ? 0 : misses + 1;
+        if (found.length > before || rows.any((r) => familyOf(r) == legacy)) {
+          hits.add(int.parse(targets[i]));
+        }
       }
-    } on HmoSessionExpired {
-      rethrow;
-    } catch (_) {
-      // A failed family lookup must not hide the people already found.
+      return hits;
     }
+
+    if (!skipBare) {
+      add(await _tryNumber(s, legacy));
+      if (found.isNotEmpty) return found;
+    }
+    final hits = await probe([for (var d = 1; d <= firstProbeBatch; d++) '$d']);
+    if (hits.contains(firstProbeBatch) || hits.contains(firstProbeBatch - 1)) {
+      await probe([
+        for (var d = firstProbeBatch + 1; d <= maxDependantProbes; d++) '$d',
+      ]);
+    }
+    if (found.isEmpty) await probe(['01', '02']);
     return found;
   }
 
@@ -353,7 +401,11 @@ class HygeiaClient implements HmoClient {
 
     if (looksLikeId(q)) {
       final id = normaliseId(q);
-      rows = await _post(s, 'member/searchwithenrolleenumber', id);
+      // A bare number may be refused (400) where "/0" works, so only the
+      // "/0" retry reports portal errors.
+      rows = id.contains('/')
+          ? await _post(s, 'member/searchwithenrolleenumber', id)
+          : await _tryNumber(s, id);
       if (!id.contains('/')) searchedBare = id;
       if (rows.isEmpty && !id.contains('/')) {
         rows = await _post(s, 'member/searchwithenrolleenumber', '$id/0');
@@ -374,20 +426,18 @@ class HygeiaClient implements HmoClient {
 
     // Principals: look up the rest of the family, unless the portal already
     // returned more than one person for that enrollee number.
-    final have = {
-      for (final r in rows) '${str(r['legacycode'])}/${str(r['dependantid'])}',
-    };
+    final have = {for (final r in rows) _key(r)};
     final perFamily = <String, int>{};
     for (final r in rows) {
-      final l = str(r['legacycode']);
+      final l = familyOf(r);
       perFamily[l] = (perFamily[l] ?? 0) + 1;
     }
     final principals = <String>{
       for (final r in rows)
-        if (str(r['dependantid']) == '0' &&
-            str(r['legacycode']).isNotEmpty &&
-            !(looksLikeId(q) && perFamily[str(r['legacycode'])]! > 1))
-          str(r['legacycode']),
+        if (dependantNoOf(r) == 0 &&
+            familyOf(r).isNotEmpty &&
+            !(looksLikeId(q) && perFamily[familyOf(r)]! > 1))
+          familyOf(r),
     }.take(maxFamilyLookups);
     final families = await Future.wait([
       for (final l in principals)

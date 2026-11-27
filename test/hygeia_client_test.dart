@@ -66,6 +66,9 @@ class _FakeHygeia {
   Map<String, List<Map<String, dynamic>>> byId = {};
   Map<String, List<Map<String, dynamic>>> byName = {};
 
+  /// SearchTargets that answer 500.
+  Set<String> failTargets = {};
+
   /// memberid -> raw body of member/memberimage (missing = 404).
   Map<String, String> photos = {};
   Set<String> slowPhotos = {};
@@ -110,6 +113,11 @@ class _FakeHygeia {
         res.statusCode = 401;
       } else {
         final target = (body as Map)['SearchTarget'] as String;
+        if (failTargets.contains(target)) {
+          res.statusCode = 500;
+          await res.close();
+          return;
+        }
         final rows = path == 'member/searchwithenrolleenumber'
             ? byId[target]
             : byName[target];
@@ -163,7 +171,7 @@ void main() {
     expect(HygeiaClient.normaliseId(' 1234567 / 2 '), '1234567/2');
   });
 
-  test('row mapping: eligible principal, no phone shown', () {
+  test('row mapping: eligible principal with contact details', () {
     final m = HygeiaClient.rowToMember(
       _row(first: 'ADA', other: '&nbsp;', last: 'OBI'),
       _today,
@@ -176,8 +184,49 @@ void main() {
     expect(m.status, 'eligible');
     expect(m.coverEnds, '31/12/2026');
     expect(m.plan, isNull);
-    expect(m.notes, 'Provider: ROAMING');
-    expect('${m.name}${m.notes}', isNot(contains('08000000000')));
+    expect(m.notes, isNull);
+    expect(m.primaryProvider, 'ROAMING');
+    expect(m.phones, ['08000000000']);
+    expect(m.emails, isEmpty);
+    expect(m.familyId, '1234567');
+    expect(m.dependantNo, 0);
+    expect(m.isPrincipal, isTrue);
+    expect(m.coverStarts, '01/01/2026');
+    expect(m.hasDetails, isTrue);
+  });
+
+  test('row mapping: other contact fields under likely names', () {
+    final m = HygeiaClient.rowToMember({
+      ..._row(dep: 1),
+      'phoneno': 'N/A',
+      'mobile': '+234 803 123 4567',
+      'EmailAddress': 'Ada.Obi@Example.COM',
+      'address': 'Plot 5, Gwagwa&nbsp;Road',
+      'groupname': 'ACME NIGERIA LTD',
+      'gender': 'FEMALE',
+      'relationship': 'SPOUSE',
+      'maritalstatus': 'Married',
+    }, _today);
+    expect(m.phones, ['+2348031234567']);
+    expect(m.emails, ['ada.obi@example.com']);
+    expect(m.address, 'Plot 5, Gwagwa Road');
+    expect(m.employer, 'Acme Nigeria Ltd');
+    expect(m.sex, 'Female');
+    expect(m.relationship, 'Spouse');
+    expect(m.dependantNo, 1);
+    expect(m.extra, {'Marital status': 'Married'});
+
+    final filler = HygeiaClient.rowToMember({
+      ..._row(),
+      'phoneno': '00000000000',
+      'email': 'test@gmail.com',
+      'address': 'None',
+      'providername': '',
+    }, _today);
+    expect(filler.phones, isEmpty);
+    expect(filler.emails, isEmpty);
+    expect(filler.address, isNull);
+    expect(filler.primaryProvider, isNull);
   });
 
   test('row mapping: not eligible reasons', () {
@@ -223,7 +272,7 @@ void main() {
       expect(login.headers['content-type'], startsWith('application/json'));
       expect(login.headers['origin'], 'https://online.hygeiahmo.com');
 
-      final search = api.nonPhoto.last;
+      final search = api.nonPhoto[1];
       expect(search.path, 'member/searchwithenrolleenumber');
       expect(search.body, {'SearchTarget': '1234567/0'});
       expect(search.headers['authorization'], 'Bearer jwt-1');
@@ -242,11 +291,78 @@ void main() {
     expect(targets, ['1234567', '1234567/0']);
   });
 
-  test('ID found as typed does not retry', () async {
+  test('ID found as typed does not retry with /0', () async {
     api.byId['1234567'] = [_row()];
     final session = await client.login(creds);
     await client.search(session, '1234567');
-    expect(api.nonPhoto.length, 2);
+    final targets = [
+      for (final q in api.nonPhoto.skip(1)) (q.body as Map)['SearchTarget'],
+    ];
+    expect(targets.first, '1234567');
+    expect(targets, isNot(contains('1234567/0')));
+  });
+
+  test(
+    'principal found by ID: dependants found by trying /1, /2 ...',
+    () async {
+      api.byId['1234567/0'] = [_row(memberid: 1)];
+      api.byId['1234567/1'] = [_row(memberid: 2, dep: 1, first: 'EMEKA')];
+      api.byId['1234567/2'] = [_row(memberid: 3, dep: 2, first: 'NNEKA')];
+      final session = await client.login(creds);
+      final r = await client.search(session, '1234567/0');
+      expect(r.records.map((m) => m.name), [
+        'Ada Obi',
+        'Emeka Obi',
+        'Nneka Obi',
+      ]);
+      expect(r.records.map((m) => m.familyId).toSet(), {'1234567'});
+      final targets = [
+        for (final q in api.nonPhoto.skip(1)) (q.body as Map)['SearchTarget'],
+      ];
+      // Bare number first, then /1, /2, and two misses (/3, /4) end it.
+      expect(targets, [
+        '1234567/0',
+        '1234567',
+        '1234567/1',
+        '1234567/2',
+        '1234567/3',
+        '1234567/4',
+      ]);
+    },
+  );
+
+  test('bare number returning the family skips the /n probes', () async {
+    api.byName['Ada Obi'] = [_row(memberid: 1)];
+    api.byId['1234567'] = [
+      _row(memberid: 1),
+      _row(memberid: 2, dep: 1, first: 'EMEKA'),
+    ];
+    final session = await client.login(creds);
+    final r = await client.search(session, 'Ada Obi');
+    expect(r.records.map((m) => m.memberId), ['1234567/0', '1234567/1']);
+    final targets = [
+      for (final q in api.nonPhoto.skip(1)) (q.body as Map)['SearchTarget'],
+    ];
+    expect(targets, ['Ada Obi', '1234567']);
+  });
+
+  test(
+    'an ID search that already returns the family looks up nothing more',
+    () async {
+      api.byId['1234567/0'] = [_row(), _row(dep: 1, first: 'EMEKA')];
+      final session = await client.login(creds);
+      final r = await client.search(session, '1234567/0');
+      expect(r.records, hasLength(2));
+      expect(api.nonPhoto, hasLength(2)); // login + one search
+    },
+  );
+
+  test('a failing family lookup still returns the people found', () async {
+    api.byName['Ada Obi'] = [_row()];
+    api.failTargets.add('1234567');
+    final session = await client.login(creds);
+    final r = await client.search(session, 'Ada Obi');
+    expect(r.records.single.name, 'Ada Obi');
   });
 
   test('name search posts the name; short names are refused', () async {
@@ -254,7 +370,7 @@ void main() {
     final session = await client.login(creds);
     final r = await client.search(session, '  Ada   Obi ');
     expect(r.records.single.name, 'Ada Obi');
-    expect(api.nonPhoto.last.path, 'member/searchwithname');
+    expect(api.nonPhoto[1].path, 'member/searchwithname');
     expect(() => client.search(session, 'Al'), throwsA(isA<HmoPortalError>()));
   });
 

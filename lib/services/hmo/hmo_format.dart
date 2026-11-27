@@ -97,3 +97,75 @@ String titleCase(String s) => cleanText(s)
 String str(Object? v) => v == null ? '' : v.toString().trim();
 
 String? orNull(String s) => s.isEmpty ? null : s;
+
+/// Filler the portals put in empty fields.
+const _placeholders = {
+  'none',
+  'null',
+  'nil',
+  'n/a',
+  'na',
+  'nan',
+  'undefined',
+  'unknown',
+  'not available',
+  'house',
+  'address',
+  '-',
+  '--',
+  '.',
+  '0',
+};
+
+/// Cleaned text (see [cleanText]), or null when empty or a filler value like
+/// "None", "N/A", "HOUSE" or "-".
+String? cleanValue(Object? v) {
+  if (v == null || v is bool) return null;
+  final s = cleanText(str(v));
+  if (s.isEmpty || _placeholders.contains(s.toLowerCase())) return null;
+  return s;
+}
+
+/// A phone number with spaces and punctuation removed, or null when it is
+/// filler, too short, or one digit repeated ("00000000000").
+String? cleanPhone(Object? v) {
+  final s = cleanValue(v);
+  if (s == null) return null;
+  final plus = s.startsWith('+');
+  final digits = s.replaceAll(RegExp(r'\D'), '');
+  if (digits.length < 7 || digits.length > 15) return null;
+  if (RegExp(r'^(\d)\1+$').hasMatch(digits)) return null;
+  return plus ? '+$digits' : digits;
+}
+
+/// A lower-case email address, or null when it is filler (test@...,
+/// noemail@..., no "@").
+String? cleanEmail(Object? v) {
+  final s = cleanValue(v)?.toLowerCase().replaceAll(' ', '');
+  if (s == null) return null;
+  if (!RegExp(r'^[^@]+@[^@]+\.[a-z]{2,}$').hasMatch(s)) return null;
+  if (RegExp(r'^(test|no|noemail|nomail|none|na|nil)@').hasMatch(s)) {
+    return null;
+  }
+  return s;
+}
+
+/// Unique non-null values, in order.
+List<String> uniqueValues(Iterable<String?> values) {
+  final out = <String>[];
+  for (final v in values) {
+    if (v != null && !out.contains(v)) out.add(v);
+  }
+  return out;
+}
+
+/// The first non-empty value among [keys] in [row], matching keys without
+/// regard to case. Handy when a portal's field names are not fully known.
+Object? pick(Map<String, dynamic> row, List<String> keys) {
+  final lower = {for (final k in row.keys) k.toLowerCase(): k};
+  for (final k in keys) {
+    final real = lower[k.toLowerCase()];
+    if (real != null && cleanValue(row[real]) != null) return row[real];
+  }
+  return null;
+}

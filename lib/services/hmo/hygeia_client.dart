@@ -19,6 +19,10 @@ class _HygeiaSession {
 /// flags and the member's cover dates.
 /// Photos: `member/memberimage/{memberid}` returns the photo URL, which loads
 /// with a plain GET.
+/// Family: a principal's dependants share the enrollee number ("1234567/1",
+/// "1234567/2" ...). They are found by searching the bare number, then by
+/// trying each "/n" in turn. Contact fields other than `phoneno` are read
+/// under several likely names because only part of the answer was captured.
 ///
 /// Built from the browser's network log; the API (port 1932) could not be
 /// reached from the build machine, so this client is covered by offline
@@ -91,11 +95,22 @@ class HygeiaClient implements HmoClient {
           'Cover not yet started (starts ${toDdMmYyyy(str(row['effectivedate']))})';
     }
 
-    final provider = str(row['providername']);
-    final notes = [
-      ?reason,
-      if (provider.isNotEmpty) 'Provider: ${cleanText(provider)}',
-    ];
+    String? text(List<String> keys) => cleanValue(pick(row, keys));
+    final relation = text(['relationship', 'relationshipname', 'membertype']);
+    final employer = text([
+      'groupname',
+      'companyname',
+      'company',
+      'employer',
+      'employername',
+      'clientname',
+      'organisation',
+      'organization',
+    ]);
+    final plan = text(['planname', 'plan', 'schemename', 'productname']);
+    final sex = text(['gender', 'gendername', 'sex']);
+    final marital = text(['maritalstatus', 'maritalstatusname']);
+    final state = text(['state', 'statename']);
     return HmoMember(
       hmo: 'hygeia',
       memberId: dep == null ? legacy : '$legacy/$dep',
@@ -106,14 +121,50 @@ class HygeiaClient implements HmoClient {
           row['lastname'],
         ].map(str).where((s) => s.isNotEmpty).join(' '),
       ),
+      sex: sex == null ? null : titleCase(sex),
       dateOfBirth: toDdMmYyyy(str(row['dob'])),
-      relationship: dep == null
+      relationship: relation != null
+          ? titleCase(relation)
+          : dep == null
           ? null
           : (dep == 0 ? 'Principal' : 'Dependant $dep'),
+      plan: plan,
       status: reason == null ? 'eligible' : 'not eligible',
       coverEnds: endsText,
-      notes: notes.isEmpty ? null : notes.join(' · '),
+      notes: reason,
       photoUrl: photoUrl,
+      familyId: legacy.isEmpty ? null : legacy,
+      dependantNo: dep,
+      phones: uniqueValues([
+        for (final k in const [
+          'phoneno',
+          'phonenumber',
+          'phone',
+          'mobile',
+          'mobileno',
+          'phoneno2',
+          'alternatephone',
+        ])
+          cleanPhone(pick(row, [k])),
+      ]),
+      emails: uniqueValues([
+        for (final k in const ['email', 'emailaddress', 'email1', 'email2'])
+          cleanEmail(pick(row, [k])),
+      ]),
+      address: text([
+        'address',
+        'homeaddress',
+        'residentialaddress',
+        'contactaddress',
+        'address1',
+      ]),
+      employer: employer == null ? null : titleCase(employer),
+      primaryProvider: text(['providername']),
+      coverStarts: toDdMmYyyy(str(row['effectivedate'])),
+      extra: {
+        if (marital != null) 'Marital status': marital,
+        if (state != null) 'State': state,
+      },
     );
   }
 
@@ -240,16 +291,70 @@ class HygeiaClient implements HmoClient {
     }
   }
 
+  /// Family lookups per search, and dependant numbers tried per family.
+  static const maxFamilyLookups = 3;
+  static const maxDependantProbes = 10;
+
+  /// Rows of [legacy]'s family not already in [have]. First the bare
+  /// enrollee number (which may return the whole family); if that brings
+  /// nobody new, tries "legacy/1", "legacy/2", ... one at a time and stops
+  /// after two misses in a row. Never throws except for an expired session.
+  Future<List<Map<String, dynamic>>> _family(
+    _HygeiaSession s,
+    String legacy,
+    Set<String> have, {
+    bool skipBare = false,
+  }) async {
+    String key(Map<String, dynamic> r) =>
+        '${str(r['legacycode'])}/${str(r['dependantid'])}';
+    bool ours(Map<String, dynamic> r) => str(r['legacycode']) == legacy;
+    final found = <Map<String, dynamic>>[];
+    void add(List<Map<String, dynamic>> rows) {
+      for (final r in rows) {
+        if (ours(r) && have.add(key(r))) found.add(r);
+      }
+    }
+
+    try {
+      if (!skipBare) {
+        add(await _post(s, 'member/searchwithenrolleenumber', legacy));
+        if (found.isNotEmpty) return found;
+      }
+      var misses = 0;
+      for (var dep = 1; dep <= maxDependantProbes && misses < 2; dep++) {
+        if (have.contains('$legacy/$dep')) {
+          misses = 0;
+          continue;
+        }
+        final rows = await _post(
+          s,
+          'member/searchwithenrolleenumber',
+          '$legacy/$dep',
+        );
+        final before = found.length;
+        add(rows);
+        misses = found.length > before ? 0 : misses + 1;
+      }
+    } on HmoSessionExpired {
+      rethrow;
+    } catch (_) {
+      // A failed family lookup must not hide the people already found.
+    }
+    return found;
+  }
+
   @override
   Future<HmoSearchResult> search(Object session, String query) async {
     final s = session as _HygeiaSession;
     final q = query.trim();
     final now = _now();
     List<Map<String, dynamic>> rows;
+    String? searchedBare;
 
     if (looksLikeId(q)) {
       final id = normaliseId(q);
       rows = await _post(s, 'member/searchwithenrolleenumber', id);
+      if (!id.contains('/')) searchedBare = id;
       if (rows.isEmpty && !id.contains('/')) {
         rows = await _post(s, 'member/searchwithenrolleenumber', '$id/0');
       }
@@ -266,6 +371,30 @@ class HygeiaClient implements HmoClient {
         q.replaceAll(RegExp(r'\s+'), ' '),
       );
     }
+
+    // Principals: look up the rest of the family, unless the portal already
+    // returned more than one person for that enrollee number.
+    final have = {
+      for (final r in rows) '${str(r['legacycode'])}/${str(r['dependantid'])}',
+    };
+    final perFamily = <String, int>{};
+    for (final r in rows) {
+      final l = str(r['legacycode']);
+      perFamily[l] = (perFamily[l] ?? 0) + 1;
+    }
+    final principals = <String>{
+      for (final r in rows)
+        if (str(r['dependantid']) == '0' &&
+            str(r['legacycode']).isNotEmpty &&
+            !(looksLikeId(q) && perFamily[str(r['legacycode'])]! > 1))
+          str(r['legacycode']),
+    }.take(maxFamilyLookups);
+    final families = await Future.wait([
+      for (final l in principals)
+        _family(s, l, have, skipBare: l == searchedBare),
+    ]);
+    rows = [...rows, for (final f in families) ...f];
+
     final photos = await Future.wait([
       for (final (i, r) in rows.indexed)
         i < maxPhotoLookups ? _photoUrl(s, r['memberid']) : Future.value(null),

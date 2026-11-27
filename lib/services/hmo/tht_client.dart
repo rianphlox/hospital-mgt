@@ -9,7 +9,11 @@ import 'hmo_format.dart';
 /// signed in with the ASP.NET_SessionId cookie. A failed login sends the
 /// login form back. Eligibility is a JSON GET by enrollee ID.
 class ThtClient implements HmoClient {
-  static const base = 'https://totalhealthtrust.tangerine.africa/portal';
+  static const defaultBase =
+      'https://totalhealthtrust.tangerine.africa/portal';
+
+  final String base;
+  ThtClient({this.base = defaultBase});
 
   @override
   String get id => 'tht';
@@ -34,35 +38,91 @@ class ThtClient implements HmoClient {
     return '$photoBase${Uri.encodeComponent(file)}';
   }
 
-  static HmoMember rowToMember(Map<String, dynamic> row) {
-    final eligible = str(row['EligibilityStatus']).toUpperCase() == 'ELIGIBLE';
-    final name = titleCase(
-      [
-        row['FirstName'],
-        row['OtherName'],
-        row['LastName'],
-      ].map(str).where((s) => s.isNotEmpty).join(' '),
-    );
-    final notes = [
-      str(row['IneligibilityReason']),
-      if (str(row['ProviderName']).isNotEmpty)
-        'Provider: ${str(row['ProviderName'])}',
-      if (str(row['GroupName']).isNotEmpty) 'Group: ${str(row['GroupName'])}',
-    ].where((s) => s.isNotEmpty).toList();
+  /// The family part of a THT ID: "1110000000-01" -> "1110000000",
+  /// "AF1234567890_1" -> "AF1234567890". The principal's ID often has no
+  /// suffix at all.
+  static String familyIdOf(String legacyCode) =>
+      legacyCode.trim().toUpperCase().replaceFirst(RegExp(r'[-_/]\d+$'), '');
+
+  static int? _int(Object? v) => v is num ? v.toInt() : int.tryParse(str(v));
+
+  static String _relationship(int? dep, Object? dependantType) {
+    final t = cleanValue(dependantType);
+    if (t != null) return titleCase(t);
+    if (dep == null) return '';
+    return dep == 0 ? 'Principal' : 'Dependant $dep';
+  }
+
+  /// Contact, employer and cover details found in both SearchMembers and
+  /// GetEligibilityIID rows. Filler ("None", "N/A", "HOUSE",
+  /// test@gmail.com) is dropped.
+  static HmoMember _member(
+    Map<String, dynamic> row, {
+    required String status,
+    String? sex,
+    String? dateOfBirth,
+    String? coverEnds,
+    String? notes,
+  }) {
     final legacy = str(row['LegacyCode']);
+    final id = legacy.isNotEmpty ? legacy : str(row['InsuredID']);
+    final dep = _int(row['DependantID']);
+    final division = cleanValue(row['DivisionName']);
+    final group = cleanValue(row['GroupName']);
+    final marital = cleanValue(row['MaritalStatusName']);
+    final altCode = cleanValue(row['AlternateCode']);
     return HmoMember(
       hmo: 'tht',
-      memberId: legacy.isNotEmpty ? legacy : str(row['InsuredID']),
-      name: name,
-      sex: orNull(str(row['Gender'])),
-      dateOfBirth: toDdMmYyyy(row['DateOfBirth']),
-      relationship: orNull(str(row['DependantType'])),
-      plan: orNull(str(row['PlanName'])),
+      memberId: id,
+      name: titleCase(
+        [
+          row['FirstName'],
+          row['OtherName'],
+          row['LastName'],
+        ].map((v) => cleanValue(v) ?? '').where((s) => s.isNotEmpty).join(' '),
+      ),
+      sex: sex,
+      dateOfBirth: dateOfBirth,
+      relationship: orNull(_relationship(dep, row['DependantType'])),
+      plan: cleanValue(row['PlanName']),
+      status: status,
+      coverEnds: coverEnds,
+      notes: notes,
+      photoUrl: photoUrlFrom(row['PixPath'] ?? row['pixpath']),
+      familyId: id.isEmpty ? null : familyIdOf(id),
+      dependantNo: dep,
+      phones: uniqueValues([
+        cleanPhone(row['Phone1']),
+        cleanPhone(row['Phone2']),
+      ]),
+      emails: uniqueValues([
+        cleanEmail(row['Email1']),
+        cleanEmail(row['Email2']),
+      ]),
+      address: cleanValue(row['Address1']),
+      employer: group == null ? null : titleCase(group),
+      primaryProvider: cleanValue(row['ProviderName']),
+      coverStarts: toDdMmYyyy(row['MemberEffDate']),
+      extra: {
+        if (division != null && division.toUpperCase() != group?.toUpperCase())
+          'Division': titleCase(division),
+        if (marital != null) 'Marital status': marital,
+        if (altCode != null) 'Other ID': altCode,
+      },
+    );
+  }
+
+  /// A GetEligibilityIID row (live eligibility).
+  static HmoMember rowToMember(Map<String, dynamic> row) {
+    final eligible = str(row['EligibilityStatus']).toUpperCase() == 'ELIGIBLE';
+    return _member(
+      row,
       status: eligible ? 'eligible' : 'not eligible',
+      sex: cleanValue(row['Gender']) ?? cleanValue(row['GenderName']),
+      dateOfBirth: toDdMmYyyy(row['DateOfBirth']) ?? toDdMmYyyy(row['dob']),
       coverEnds:
           toDdMmYyyy(row['MemberTermDate']) ?? toDdMmYyyy(row['GroupTermDate']),
-      notes: notes.isEmpty ? null : notes.join(' · '),
-      photoUrl: photoUrlFrom(row['PixPath']),
+      notes: cleanValue(row['IneligibilityReason']),
     );
   }
 
@@ -91,36 +151,24 @@ class ThtClient implements HmoClient {
   /// status "on list". Used when the eligibility call gives nothing back, and
   /// for name matches beyond [maxEligibilityChecks].
   static HmoMember searchRowToMember(Map<String, dynamic> row) {
-    final name = titleCase(
-      [
-        row['FirstName'],
-        row['OtherName'],
-        row['LastName'],
-      ].map(str).where((s) => s.isNotEmpty).join(' '),
-    );
-    final dep = str(row['DependantID']);
     final terminated = str(row['IsTerminated']).toLowerCase() == 'true';
-    return HmoMember(
-      hmo: 'tht',
-      memberId: str(row['LegacyCode']),
-      name: name,
-      sex: orNull(str(row['GenderName'])),
-      dateOfBirth: toDdMmYyyy(row['dob']),
-      relationship: dep.isEmpty
-          ? null
-          : (dep == '0' ? 'Principal' : 'Dependant $dep'),
-      plan: orNull(str(row['PlanName'])),
+    return _member(
+      row,
       status: terminated ? 'not eligible' : 'on list',
+      sex: cleanValue(row['GenderName']) ?? cleanValue(row['Gender']),
+      dateOfBirth: toDdMmYyyy(row['dob']) ?? toDdMmYyyy(row['DateOfBirth']),
       coverEnds: toDdMmYyyy(row['Terminationdate']),
       notes: terminated
           ? 'Terminated on the THT list'
           : 'Search this member ID to check eligibility',
-      photoUrl: photoUrlFrom(row['PixPath'] ?? row['pixpath']),
     );
   }
 
   /// Eligibility is fetched one call per person, so it is capped.
-  static const maxEligibilityChecks = 10;
+  static const maxEligibilityChecks = 12;
+
+  /// Families looked up per search (one SearchMembers call each).
+  static const maxFamilyLookups = 5;
 
   /// THT IDs: legacy "AF1234567890_1" or "1110000000-03"; a bare family
   /// number like "1110000000" returns the whole family. Anything with a
@@ -221,7 +269,10 @@ class ThtClient implements HmoClient {
         _eligibility(
           s,
           str(row['LegacyCode']),
-        ).then((m) => m ?? searchRowToMember(row)),
+        ).then((m) => m ?? searchRowToMember(row)).catchError((Object e) {
+          if (e is HmoSessionExpired) throw e;
+          return searchRowToMember(row);
+        }),
     ]);
     return [
       ...checked,
@@ -235,6 +286,56 @@ class ThtClient implements HmoClient {
     row['LastName'],
   ].map((v) => cleanText(str(v))).join(' ').toUpperCase();
 
+  /// Adds the rest of each family to [rows]: one SearchMembers call per
+  /// family (the portal's IID search is a contains-match, so a family ID
+  /// returns the principal and every dependant; rows from other families
+  /// that merely contain the digits are dropped). Never throws on a family
+  /// lookup error other than an expired session; the matches still show.
+  Future<List<Map<String, dynamic>>> _withFamilies(
+    CookieSession s,
+    List<Map<String, dynamic>> rows, {
+    String? alreadySearched,
+  }) async {
+    final seen = {for (final r in rows) str(r['LegacyCode']).toUpperCase()};
+    final families = <String>[];
+    for (final r in rows) {
+      final f = familyIdOf(str(r['LegacyCode']));
+      if (f.isEmpty || families.contains(f) || f == alreadySearched) continue;
+      families.add(f);
+    }
+    final found = await Future.wait([
+      for (final f in families.take(maxFamilyLookups))
+        _searchMembers(s, 'IID', f)
+            .then(
+              (list) => [
+                for (final r in list)
+                  if (familyIdOf(str(r['LegacyCode'])) == f) r,
+              ],
+            )
+            .catchError((Object e) {
+              if (e is HmoSessionExpired) throw e;
+              return <Map<String, dynamic>>[];
+            }),
+    ]);
+    final extra = <Map<String, dynamic>>[];
+    for (final list in found) {
+      for (final r in list) {
+        if (seen.add(str(r['LegacyCode']).toUpperCase())) extra.add(r);
+      }
+    }
+    return [...rows, ...extra];
+  }
+
+  HmoSearchResult _result(List<HmoMember> people, {int? total}) =>
+      HmoSearchResult(
+        people,
+        total: total,
+        notice: people.length > maxEligibilityChecks
+            ? 'Live eligibility shown for the first $maxEligibilityChecks '
+                  'people. Search a member ID to check the others.'
+            : null,
+      );
+
   @override
   Future<HmoSearchResult> search(Object session, String query) async {
     final s = session as CookieSession;
@@ -244,7 +345,21 @@ class ThtClient implements HmoClient {
       final id = normaliseId(q);
       final rows = await _searchMembers(s, 'IID', id);
       if (rows.isNotEmpty) {
-        return HmoSearchResult(await _withEligibility(s, rows));
+        // Keep only this family's rows when the contains-match also hit
+        // other IDs, then add any family members not returned yet.
+        final exact = [
+          for (final r in rows)
+            if (str(r['LegacyCode']).toUpperCase() == id ||
+                familyIdOf(str(r['LegacyCode'])) == familyIdOf(id))
+              r,
+        ];
+        final mine = exact.isEmpty ? rows : exact;
+        final all = await _withFamilies(
+          s,
+          mine,
+          alreadySearched: familyIdOf(id) == id ? id : null,
+        );
+        return _result(await _withEligibility(s, all));
       }
       // Fall back to the direct eligibility call (older IDs).
       final m = await _eligibility(s, id);
@@ -282,13 +397,10 @@ class ThtClient implements HmoClient {
           ..removeWhere((r) => !terminated(r))
           ..insertAll(0, active);
         const limit = 50;
-        return HmoSearchResult(
-          await _withEligibility(s, matches.take(limit).toList()),
+        final shown = await _withFamilies(s, matches.take(limit).toList());
+        return _result(
+          await _withEligibility(s, shown),
           total: matches.length > limit ? matches.length : null,
-          notice: matches.length > maxEligibilityChecks
-              ? 'Live eligibility shown for the first $maxEligibilityChecks '
-                    'people. Search a member ID to check the others.'
-              : null,
         );
       }
     }
